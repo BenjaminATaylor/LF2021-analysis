@@ -1,5 +1,5 @@
 ---
-title: "Liostenogaster flavolineata experiment 1 analysis"
+title: "Liostenogaster flavolineata analysis"
 author: "Benjamin Taylor"
 date: "2020/11/13"
 output:   
@@ -11,7 +11,7 @@ output:
   pdf_document: default
 ---
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = F, message = F, warning = F, cache = T, cache.path =  "/home/benjamin/Desktop/Paper_3_local_cache/cache")
+knitr::opts_chunk$set(echo = F, message = F, warning = F, cache = T, cache.path =  "/home/benjamin/Documents/LF_2020_repo/LF_2020_cache/Cache")
 #knitr::opts_knit$set(root.dir = '/home/benjamin/Dropbox/Ben PhD/Chapter_2_Manuscript/input_data')
 ```
 ```{r load-libraries, eval = TRUE, echo = FALSE, include = FALSE}
@@ -40,23 +40,23 @@ options(stringsAsFactors = F)
 
 #experiment 1 data
 #import tidy phenotypic data
-exp1.phenodata = read.csv("/home/benjamin/Dropbox/Ben PhD/PhD Docs/Paper 3/Objective_1/Data/exp1.phenodata.csv")
+exp1.phenodata = read.csv("/home/benjamin/Documents/LF_2020_repo/Data_Experiment_1/exp1.phenodata.csv")
 #import raw gene count data
-exp1.gene.counts = read.delim("/home/benjamin/Dropbox/Ben PhD/PhD Docs/Paper 3/Objective_1/Data/merged_gene_counts.txt", sep = "\t", row.names = 1)
+exp1.gene.counts = read.delim("/home/benjamin/Documents/LF_2020_repo/Data_Experiment_1/merged_gene_counts.txt", sep = "\t", row.names = 1)
 #import functions
-source("/home/benjamin/Dropbox/Ben PhD/PhD Docs/Paper 3/Objective_1/Scripts/R_scripts/Functions/topGO_wrapper.R")
-source("/home/benjamin/Dropbox/Ben PhD/PhD Docs/Paper 3/Objective_1/Scripts/R_scripts/Functions/DESeq_wrapper.R")
+source("/home/benjamin/Documents/LF_2020_repo/Functions/topGO_wrapper.R")
+source("/home/benjamin/Documents/LF_2020_repo/Functions/DESeq_wrapper.R")
 #import gene ontology mapping
-load("/home/benjamin/Dropbox/Ben PhD/PhD Docs/Paper 3/Objective_2/Data/GOmapping_LF.Rdata")
+load("/home/benjamin/Documents/LF_2020_repo/Genomic/GOmapping_LF.Rdata")
 
 #experiment 2 data
 #import tidy phenotypic data
-exp2.phenodata = read.csv("/home/benjamin/Dropbox/Ben PhD/PhD Docs/Paper 3/Objective_2/Data/exp2.phenodata.csv", na.strings=c("","NA"))
+exp2.phenodata = read.csv("/home/benjamin/Documents/LF_2020_repo/Data_Experiment_2/exp2.phenodata.csv", na.strings=c("","NA"))
 #add missing age data to the phenotypic data
-ageImport = read.csv("/home/benjamin/Dropbox/Ben PhD/PhD Docs/Paper 3/Objective_2/Data/sample_collection_dates.csv")
+ageImport = read.csv("/home/benjamin/Documents/LF_2020_repo/Data_Experiment_2/sample_collection_dates.csv")
 exp2.phenodata$Age = ageImport$Age.at.removal[match(exp2.phenodata$WaspID,ageImport$SampleID)]
 #import raw gene count data
-exp2.gene.counts = read.delim("/home/benjamin/Dropbox/Ben PhD/PhD Docs/Paper 3/Objective_2/Data/merged_gene_counts.txt", sep = "\t", row.names = 1)
+exp2.gene.counts = read.delim("/home/benjamin/Documents/LF_2020_repo/Data_Experiment_2/merged_gene_counts.txt", sep = "\t", row.names = 1)
 ```
 ```{r record-session, eval = TRUE, echo = FALSE, include = FALSE}
 sessionInfo()
@@ -367,7 +367,7 @@ gene_overlap = function(list1, list2, background){
   
 }
 
-Pdom_SVM_GO = read.csv("/home/benjamin/Dropbox/Ben PhD/PhD Docs/Paper 2/Data sheets/GO/group_contrasts/SVM_GOall_0.05.csv")
+Pdom_SVM_GO = read.csv("/home/benjamin/Documents/LF_2020_repo/Data_Pdom/SVM_GOall_0.05.csv")
 #get full list of all possible GO terms
 allGO = unique(unlist(GOmapping_LF))
 GOverlap = gene_overlap(Pdom_SVM_GO$GO.ID, labourGO$consolidated_result$GO.ID, allGO)
@@ -381,8 +381,8 @@ What about if we divide the GO terms into ones that are enriched among up- and d
 
 ```{r exp1-pdom-GO-overlap-directional}
 #import GO results from Pdominula
-Pdom_SVM_GOup = read.csv("/home/benjamin/Dropbox/Ben PhD/PhD Docs/Paper 2/Data sheets/GO/group_contrasts/SVM_GOup_0.05.csv")
-Pdom_SVM_GOdown = read.csv("/home/benjamin/Dropbox/Ben PhD/PhD Docs/Paper 2/Data sheets/GO/group_contrasts/SVM_GOdown_0.05.csv")
+Pdom_SVM_GOup = read.csv("/home/benjamin/Documents/LF_2020_repo/Data_Pdom/SVM_GOup_0.05.csv")
+Pdom_SVM_GOdown = read.csv("/home/benjamin/Documents/LF_2020_repo/Data_Pdom/SVM_GOdown_0.05.csv")
 
 #NB: because the baseline for the LF comparison was reproductives, genes that have LFC<0 here are upregulated *in queens*, which is why this looks backwards
 labourDEGs_up = results(dds.cohort.degs.labour) %>% subset(padj<0.05 & log2FoldChange<0) %>% row.names()
@@ -917,7 +917,7 @@ GOplot_foragingDown = ggplot(topForagingGO_down, aes(y = reorder(Term, result*(-
 It's interesting to see so many GO terms associated with basal functions such as protein binding enriched in our set of foraging genes- this is reminiscent of the sets of GO terms we found enriched among *P dominula* SVM genes and also among genes that were differentially expressed between reproductives and foragers in experiment 1. In fact, there's a strongly significant overlap between GO terms that are enriched with foraging rate in experiment 2 and genes that differentiate reproductives and foragers in experiment 1, which isn't very surprising but is still good to know. On the other hand, there are no shared GO terms between experiment 2 foraging genes and *P dominula* SVM genes. 
 
 ```{r exp1-exp2-pdom-GO-overlap}
-Pdom_SVM_GO = read.csv("/home/benjamin/Dropbox/Ben PhD/PhD Docs/Paper 2/Data sheets/GO/group_contrasts/SVM_GOall_0.05.csv")
+Pdom_SVM_GO = read.csv("/home/benjamin/Documents/LF_2020_repo/Data_Pdom/SVM_GOall_0.05.csv")
 #get full list of all possible GO terms
 allGO = unique(unlist(GOmapping_LF))
 GOverlap_exp2 = gene_overlap(Pdom_SVM_GO$GO.ID, foragingGO$consolidated_result$GO.ID, allGO)
@@ -1035,7 +1035,7 @@ adjacency = adjacency(datExpr, power = softPower, type = "signed hybrid");
 # Turn adjacency into topological overlap (this will take a while)
 #TOM = TOMsimilarity(adjacency,verbose = 0);
 #calculating TOMs is very slow, so here we just load the output of a pre-performed analysis directly
-load("/home/benjamin/Desktop/LF2_TOM_no_rank1.RData")
+load("/home/benjamin/Documents/LF_2020_repo/Data_Experiment_2/LF2_TOM_no_rank1.RData")
 dissTOM = 1-TOM
 
 # Call the hierarchical clustering function
