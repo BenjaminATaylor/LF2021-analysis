@@ -70,7 +70,7 @@ exp1.gene.counts = exp1.gene.counts[, colnames(exp1.gene.counts) %in% exp1.pheno
 
 #exclude outlier samples
 exclude = c("SolF5", # Phenotypic outlier
-            "Sol34") # Gene expression outlier
+            "Sol34","SocF14") # Gene expression outliers
 exp1.phenodata.clean = subset(exp1.phenodata, !(WaspID %in% exclude))
 
 #get all rows for which there are fewer than 1 count/sample total in the group
