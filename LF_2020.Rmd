@@ -1,0 +1,1343 @@
+---
+title: "Liostenogaster flavolineata experiment 1 analysis"
+author: "Benjamin Taylor"
+date: "2020/11/13"
+output:   
+  html_document:
+    code_folding: hide
+    self_contained: FALSE
+    fig_width: 10
+    fig_height: 10 
+  pdf_document: default
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, message = F, warning = F, cache = T, cache.path =  "/home/benjamin/Desktop/Paper_3_local_cache/cache")
+#knitr::opts_knit$set(root.dir = '/home/benjamin/Dropbox/Ben PhD/Chapter_2_Manuscript/input_data')
+```
+```{r load-libraries, eval = TRUE, echo = FALSE, include = FALSE}
+# get libraries
+basic_libraries <- c("ggpubr",
+                     "tidyverse",
+                     "DESeq2",
+                     "data.table",
+                     "topGO",
+                     "RColorBrewer",
+                     "WGCNA",
+                     "limma")
+
+for (lib in basic_libraries) {
+        if (require(package = lib, character.only = TRUE)) {
+                print("Successful")
+        } else {
+                print("Installing")
+                install.packages(lib)
+                library(lib, character.only = TRUE )
+        }
+}
+```
+```{r import-data, eval = TRUE, echo = FALSE, include = FALSE}
+options(stringsAsFactors = F)
+
+#experiment 1 data
+#import tidy phenotypic data
+exp1.phenodata = read.csv("/home/benjamin/Dropbox/Ben PhD/PhD Docs/Paper 3/Objective_1/Data/exp1.phenodata.csv")
+#import raw gene count data
+exp1.gene.counts = read.delim("/home/benjamin/Dropbox/Ben PhD/PhD Docs/Paper 3/Objective_1/Data/merged_gene_counts.txt", sep = "\t", row.names = 1)
+#import functions
+source("/home/benjamin/Dropbox/Ben PhD/PhD Docs/Paper 3/Objective_1/Scripts/R_scripts/Functions/topGO_wrapper.R")
+source("/home/benjamin/Dropbox/Ben PhD/PhD Docs/Paper 3/Objective_1/Scripts/R_scripts/Functions/DESeq_wrapper.R")
+#import gene ontology mapping
+load("/home/benjamin/Dropbox/Ben PhD/PhD Docs/Paper 3/Objective_2/Data/GOmapping_LF.Rdata")
+
+#experiment 2 data
+#import tidy phenotypic data
+exp2.phenodata = read.csv("/home/benjamin/Dropbox/Ben PhD/PhD Docs/Paper 3/Objective_2/Data/exp2.phenodata.csv", na.strings=c("","NA"))
+#add missing age data to the phenotypic data
+ageImport = read.csv("/home/benjamin/Dropbox/Ben PhD/PhD Docs/Paper 3/Objective_2/Data/sample_collection_dates.csv")
+exp2.phenodata$Age = ageImport$Age.at.removal[match(exp2.phenodata$WaspID,ageImport$SampleID)]
+#import raw gene count data
+exp2.gene.counts = read.delim("/home/benjamin/Dropbox/Ben PhD/PhD Docs/Paper 3/Objective_2/Data/merged_gene_counts.txt", sep = "\t", row.names = 1)
+```
+```{r record-session, eval = TRUE, echo = FALSE, include = FALSE}
+sessionInfo()
+```
+```{r clean-gene-data, eval =TRUE, echo = FALSE, include = FALSE}
+#experiment 1 data
+#ensure phenotypic and expression data conform
+colnames(exp1.gene.counts) = sub("_1Aligned.sortedByCoord.out.bam","",colnames(exp1.gene.counts))
+exp1.phenodata = subset(exp1.phenodata, WaspID %in% colnames(exp1.gene.counts))
+exp1.gene.counts = exp1.gene.counts[, colnames(exp1.gene.counts) %in% exp1.phenodata$WaspID]
+
+#exclude outlier samples
+exclude = c("SolF5", # Phenotypic outlier
+            "Sol34") # Gene expression outlier
+exp1.phenodata.clean = subset(exp1.phenodata, !(WaspID %in% exclude))
+
+#get all rows for which there are fewer than 1 count/sample total in the group
+groups = unique(exp1.phenodata$Treatment)
+cutrows = c()
+for(i in 1:length(groups)){
+  threshold = nrow(subset(exp1.phenodata, Treatment == groups[i]))
+  subgene = exp1.gene.counts[,which(colnames(exp1.gene.counts) %in% subset(exp1.phenodata, Treatment == groups[i])$WaspID)]
+  cutrows = c(cutrows,which(rowSums(subgene)<threshold))
+}
+#cut genes that have less than 1 read/sample in every group of interest
+remove = as.numeric(names(table(cutrows)[which(table(cutrows) == length(unique(exp1.phenodata$Treatment)))]))
+exp1.gene.counts.clean = as.matrix(exp1.gene.counts[-remove,])
+exp1.gene.counts.clean = exp1.gene.counts.clean[,as.character(exp1.phenodata.clean$WaspID)]
+
+#experiment 2 data
+#ensure phenotypic and expression data conform
+colnames(exp2.gene.counts) = sub("_1Aligned.sortedByCoord.out.bam","",colnames(exp2.gene.counts))
+exp2.phenodata = subset(exp2.phenodata, WaspID %in% colnames(exp2.gene.counts))
+exp2.gene.counts = exp2.gene.counts[, colnames(exp2.gene.counts) %in% exp2.phenodata$WaspID]
+
+#define and remove outliers
+exclude =  c("LF_162_R4","LF_202_R2","LF_171_R1", #gene expression outliers
+             "LF_195_R1", "LF_209_R1", #phenotypic outlier (no eggs)
+             "LF_209_R2") #ovarian data not recorded
+exp2.phenodata.clean = subset(exp2.phenodata, !(WaspID %in% exclude))
+exp2.gene.counts.clean = exp2.gene.counts[,as.character(exp2.phenodata.clean$WaspID)]
+
+#cut all rows for which there are fewer than 1 count/sample total
+remove = as.numeric(which(rowSums(exp2.gene.counts.clean)<nrow(exp2.phenodata.clean)))
+if(length(remove>0)){exp2.gene.counts.clean = as.matrix(exp2.gene.counts.clean[-remove,])}
+
+# record whether each individual is a control (removed) individual or an individual that has experienced a manipulated nest
+exp2.phenodata.clean$Control = ifelse(exp2.phenodata.clean$Rank == exp2.phenodata.clean$RemovedIndividual, TRUE, FALSE)
+# C = original rank + original nest size; ; S = original rank + reduced nest size ; R = upgraded rank 
+exp2.phenodata.clean$Treatment = factor(dplyr::case_when(exp2.phenodata.clean$Rank == 1 ~ "R1_S",
+                                                exp2.phenodata.clean$Rank == 4 ~ "R3_R",
+                                                exp2.phenodata.clean$Rank == 5 ~ "R4_R",
+                                                exp2.phenodata.clean$Rank == 2 & exp2.phenodata.clean$RemovedIndividual == 2 ~ "R2_C",
+                                                exp2.phenodata.clean$Rank == 2 & exp2.phenodata.clean$RemovedIndividual == 3 ~ "R2_S",
+                                                exp2.phenodata.clean$Rank == 3 & exp2.phenodata.clean$RemovedIndividual == 3 ~ "R3_C",
+                                                exp2.phenodata.clean$Rank == 3 & exp2.phenodata.clean$RemovedIndividual == 2 ~ "R2_R"),
+                                      levels = c("R1_S","R2_S","R2_C","R2_R","R3_C","R3_R","R4_R"))
+# record individuals' final ranks in additiona to their original ranks
+exp2.phenodata.clean$FinalRank = as.numeric(substr(exp2.phenodata.clean$Treatment,2,2))
+# record whether each individual has themselves changed rank 
+exp2.phenodata.clean$RankChange = !(exp2.phenodata.clean$Rank == exp2.phenodata.clean$FinalRank)
+# record individuals foraging rate immediately prior to removal
+exp2.phenodata.clean$OffNestFinal  = ifelse(exp2.phenodata.clean$Control == T, exp2.phenodata.clean$OffNestBefore, exp2.phenodata.clean$OffNestAfter)
+# record change in time off nest before and after manipulation
+exp2.phenodata.clean = mutate(exp2.phenodata.clean, OffNestChange = OffNestAfter-OffNestBefore)
+```
+
+# Experiment 1
+## Experimental design 
+
+Three treatments, assigned at random:
+
+* **Social Forager (SocFor, n = 10): A non-reproductive individual was identified on nests with 2-4 individuals. The egg-layer remained on the nest. All nests were manipulated to ensure a maximum of 4 individuals (including focal). Following initial manipulation, any newly emerged wasps were removed to ensure nest size remained the same throughout the experiment
+
+* Social Reproductive (SocRep, n = 9): The original egg-layer was removed from the nest to allow the focal wasp to become the dominant reproductive on nests of between 2-3 individuals. Following initial manipulation, any newly emerged wasps were removed to ensure nest size remained the same throughout the experiment and egg-laying was confirmed through brood counts.
+
+* Solitary Forager (SolFor, n = 6) & Solitary Reproductive (SolRep, n = 8): To generate solitary phenotypes, all individuals on the nest, except the focal were removed at day 10. Census’ of foraging efforts initially identified individuals which foraged the most, then on day 28, individuals were collected either returning to the nest with forage (SolF) or laying an egg (SolR).
+
+For all manipulations, focal wasps were left on manipulated nests from days 10-28 and census’s were performed every 2 hours during peak foraging times, to determine foraging effort. When each focal individual was 28 days old (18 days after manipulation), they were collected directly from the nest and placed immediately into RNA later.
+
+## Phenotypic results
+
+Looking at the phenotypic data, we can see an immediate problem. Solitary reproductives and solitary foragers nominally shouldn't differ in their foraging rates, yet they clearly do, which makes me question whether the experimental design was exactly as described above. Could it be that Daisy intentionally identified individuals that differed in their foraging rates even while solitary? On the other hand, there is no difference between the two solitary treatments in terms of number of developed eggs, so that's good.
+```{r exp1-plot-foraging-rate-and-eggs-by-treatment}
+gg_exp1_TimeOnNest = ggplot(exp1.phenodata.clean, aes(x = Treatment, y = TimeOnNest, label = WaspID)) + 
+    geom_boxplot() +
+    #geom_text() +
+    geom_point()
+
+gg_exp1_DevelopedEggs = ggplot(exp1.phenodata.clean, aes(x = Treatment, y = DevelopedEggs, label = WaspID)) + 
+    geom_boxplot() +
+    #geom_text() +
+    geom_point()
+
+
+plot(ggarrange(gg_exp1_TimeOnNest, gg_exp1_DevelopedEggs))
+```
+
+Among individuals from social nests, there isn't a clear relationship between foraging rate and nest size, nor between foraging rate and rank among individuals that were not rank 1 (although this is hard to assess as only two rank 3 individuals were sequenced):
+```{r exp1-plot-social-foraging-rate-by-nest-size}
+exp1.phenodata.clean.social = subset(exp1.phenodata.clean, Treatment %in% c("SocRep","SocFor"))
+
+# gg_exp1_socialForagingByRank = ggplot(exp1.phenodata.clean.social, aes(x = Rank, y = TimeOnNest)) +
+#   geom_point()
+
+gg_exp1_socialForagingBySize = ggplot(exp1.phenodata.clean.social, aes(x = NestSize, y = TimeOnNest, color = as.factor(Rank))) +
+  geom_point(size =3)
+
+plot(gg_exp1_socialForagingBySize)
+```
+
+## Gene expression results
+
+We first perform pairwise comparisons between each different treatment group. Doing so, we find that social foragers show significant differential expression with social reproductives and even more so with solitary reproductives. Apart from this, we find no meaningful signals of differential expression. This is particularly interesting in the case of solitary foragers- these individuals don't show differential expression with reproductives, but nor do they do so with social foragers. That's confusing! 
+
+```{r exp1_treatment-pairwise-DESeq2}
+# perform analysis 
+dds.gene = DESeqDataSetFromMatrix(countData = exp1.gene.counts.clean,
+                                  colData = exp1.phenodata.clean,
+                                  design = ~Treatment)
+# Run the default analysis for DESeq2 and generate results table. NA p-values are generated by 0 counts and outliers calculated by Cook's distance.
+dds.gene.deg = DESeq(dds.gene, fitType = "local", betaPrior = FALSE)
+# Check for outliers: none are apparent
+# print("Check for gene expression outliers")
+# par(mar=c(8,5,2,2))
+# boxplot(log10(assays(dds.gene.deg)[["cooks"]]), range=0, las=2)
+#list all possible combinations of treatment groups
+groups = as.character(unique(dds.gene.deg$Treatment))
+contrasts = t(combn(groups, 2))
+#create empty matrix to be populated with between-group comparisons
+DEGs = matrix(nrow = length(groups), 
+              ncol = length(groups), 
+              dimnames = list(groups,groups))
+gene.comparisons = c()
+#for each comparison, perform basic differential expression analysis 
+for(i in 1:nrow(contrasts)){
+  
+  comparison = results(dds.gene.deg, 
+                       contrast=c("Treatment", 
+                                  contrasts[i,1], 
+                                  contrasts[i,2]),     
+                       alpha = 0.05,
+                       lfcThreshold = log2(1))
+  
+  #give comparison object a meaningful name for future reference and save that name in a list
+  assign(paste0(contrasts[i,1], ".",contrasts[i,2],".gene.comparison"), comparison)
+  gene.comparisons = append(paste0(contrasts[i,1], ".",contrasts[i,2],".gene.comparison"),gene.comparisons)
+  DEGs[contrasts[i,1],contrasts[i,2]] = (sum(comparison$padj<0.05, na.rm = TRUE))
+  DEGs[contrasts[i,2],contrasts[i,1]] = DEGs[contrasts[i,1],contrasts[i,2]]
+  }
+
+# make a figure 
+DEGs[upper.tri(DEGs)] = NA
+DEGs_plot = reshape2::melt(DEGs, na.rm = TRUE)
+DEGplot_lfc0 = ggplot(data = DEGs_plot, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile(color = "black") +
+  geom_text(aes(label=value)) +
+  scale_fill_gradient(low = "cornsilk", high = "red", 
+                      limit = c(0,500), space = "Lab", 
+                      name="Number of differentially\nexpressed genes at lfc = 0") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1,
+                                   size = 12, hjust = 1),
+        axis.text.y = element_text(size = 12),
+        axis.title = element_blank()) +
+  coord_fixed()
+
+#repeat but using an LFC threshold 
+#create empty matrix to be populated with between-group comparisons
+DEGs = matrix(nrow = length(groups), 
+              ncol = length(groups), 
+              dimnames = list(groups,groups))
+gene.comparisons = c()
+#for each comparison, perform basic differential expression analysis 
+for(i in 1:nrow(contrasts)){
+  
+  comparison = results(dds.gene.deg, 
+                       contrast=c("Treatment", 
+                                  contrasts[i,1], 
+                                  contrasts[i,2]),     
+                       alpha = 0.05,
+                       lfcThreshold = log2(1.5))
+  
+  #give comparison object a meaningful name for future reference and save that name in a list
+  assign(paste0(contrasts[i,1], ".",contrasts[i,2],".gene.comparison"), comparison)
+  gene.comparisons = append(paste0(contrasts[i,1], ".",contrasts[i,2],".gene.comparison"),gene.comparisons)
+  
+  DEGs[contrasts[i,1],contrasts[i,2]] = (sum(comparison$padj<0.05, na.rm = TRUE))
+  DEGs[contrasts[i,2],contrasts[i,1]] = DEGs[contrasts[i,1],contrasts[i,2]]
+  
+}
+# make a figure 
+DEGs[upper.tri(DEGs)] = NA
+DEGs_plot = reshape2::melt(DEGs, na.rm = TRUE)
+DEGplot_lfc1.5 = ggplot(data = DEGs_plot, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile(color = "black") +
+  geom_text(aes(label=value)) +
+  scale_fill_gradient(low = "cornsilk", high = "red", 
+                      limit = c(0,500), space = "Lab", 
+                      name="Number of differentially\nexpressed genes at lfc = log2(1.5)") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1,
+                                   size = 12, hjust = 1),
+        axis.text.y = element_text(size = 12),
+        axis.title = element_blank()) +
+  coord_fixed()
+
+#give both plot
+plot(ggarrange(DEGplot_lfc0, DEGplot_lfc1.5, ncol = 1))
+```
+
+Our initial findings suggest reasonably strong differential expression between reproductives and (solitary) foragers, but seemingly not between solitary and social individuals. When we compare all reproductive vs all foraging individuals, and likewise all social vs all solitary individuals, we confirm this result:
+
+```{r exp1-cohort-DESeq2}
+#divide individuals by social and labour class
+cohorts = mutate(exp1.phenodata.clean, 
+                 SocialType = ifelse(Treatment %in% c("SocFor", "SocRep"),"Social","Solitary"),
+                 LabourType = ifelse(Treatment %in% c("SocFor", "SolFor"), "Forager","Reproductive"))
+#compare all social vs all solitary
+dds.cohort.social = DESeqDataSetFromMatrix(countData = exp1.gene.counts.clean,
+                                    colData = cohorts,
+                                    design = as.formula("~SocialType"))
+dds.cohort.degs.social = DESeq(dds.cohort.social)
+print(paste0("Genes differentially expressed between solitary and social individuals at lfc=0: ", sum(results(dds.cohort.degs.social)$padj<0.05, na.rm = T)))
+#compare all foraging vs all reproductive
+dds.cohort.labour = DESeqDataSetFromMatrix(countData = exp1.gene.counts.clean,
+                                    colData = cohorts,
+                                    design = as.formula("~LabourType"))
+dds.cohort.degs.labour = DESeq(dds.cohort.labour)
+print(paste0("Genes differentially expressed between egglaying and foraging individuals at lfc=0: ", sum(results(dds.cohort.degs.labour)$padj<0.05, na.rm = T)))
+```
+Which GO terms are associated with the set of genes that are differentially expressed between foragers and egglayers? A large number of GO terms are associated with this comparison, of which the most highly-enriched seem to be associated with respiration/energetic processes:
+
+```{r exp1-cohort-topGO}
+labourDEGs = results(dds.cohort.degs.labour) %>% subset(padj<0.05) %>% row.names()
+GOscores.labour = as.numeric(row.names(exp1.gene.counts.clean) %in% labourDEGs) %>% 'names<-'(row.names(exp1.gene.counts.clean))
+
+labourGO = topGO_wrapper(geneScores = GOscores.labour,
+                         geneScoresDE = F,
+                         geneScoresDirection = NA,
+                         GOmapping = GOmapping_LF,
+                         algorithm = "weight01",
+                         statistic = "fisher",
+                         nodeSize = 10,
+                         discretisedDE = F,
+                         p = 0.01)
+
+# labourGO_0.05 = topGO_wrapper(geneScores = GOscores.labour,
+#                               geneScoresDE = F,
+#                               geneScoresDirection = NA,
+#                               GOmapping = GOmapping_LF,
+#                               algorithm = "weight01",
+#                               statistic = "fisher",
+#                               nodeSize = 10,
+#                               discretisedDE = F,
+#                               p = 0.05)
+
+print(paste0("GO terms enriched in comparison between egglayers and foragers at p<0.01: ", nrow(labourGO$consolidated_result)))
+
+#take just the top 20 terms
+topLabourGO = labourGO$consolidated_result[order(labourGO$consolidated_result$result, decreasing = T)[1:20],]
+#capitalize and then add newline characters between words ever 30 characters
+topLabourGO$Term = paste0(toupper(str_sub(topLabourGO$Term,1,1)),str_sub(topLabourGO$Term,2,))
+topLabourGO$Term = gsub("(.{32,}?)\\s", "\\1\n", topLabourGO$Term)
+#convert to log10 scale
+topLabourGO$result = abs(log10(as.numeric(topLabourGO$result)))
+#plot
+degGOplot = ggplot(topLabourGO, aes(y = reorder(Term, result*(-1)), x = result, fill = Ontology)) +
+  geom_bar(stat = "identity", 
+           colour = "black", 
+           size = 1,
+           width = 0.8) +
+  # scale_x_continuous(expand = c(0,0,0.1,0),
+  #                    breaks = seq(0,5,by=1)) +
+  xlab(label = "-log10 p-value") +
+  ylab(label = "GO term") +
+  #scale_fill_manual(values = wes_palette(name= "FantasticFox1",n=5)[2:4]) +
+  scale_fill_manual(values = brewer.pal(3,"Blues")) +
+  ggtitle("Top 20 highly-enriched GO terms (p<0.01)") +
+  theme_bw() +
+  theme(panel.grid = element_line(color = "grey95"),
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        legend.title = element_text(face = "bold"),
+        axis.text.x = element_text(size = 11),
+        axis.text.y = element_text(size = 9),
+        axis.title = element_text(face = "bold", size =12))
+
+plot(degGOplot)
+```
+
+In fact, this list of GO terms seems quite reminiscent of the set that divided queens and workers in the P. dominula data- in fact, there's quite a strong overlap:
+
+```{r exp1-pdom-GO-overlap}
+#define function to assess overlap between two gene lists
+gene_overlap = function(list1, list2, background){
+  
+  n_A = length(list1)
+  n_B = length(list2)
+  n_C = length(background)
+  n_A_B = length(intersect(list1,list2))
+  hyp = phyper(n_A_B - 1, n_A, n_C-n_A, n_B, lower.tail = FALSE)
+  jac = n_A_B/(n_A+n_B-n_A_B)
+  
+  res = list(hypergeom = hyp,
+             jaccard = jac)
+  
+  return(res)
+  
+}
+
+Pdom_SVM_GO = read.csv("/home/benjamin/Dropbox/Ben PhD/PhD Docs/Paper 2/Data sheets/GO/group_contrasts/SVM_GOall_0.05.csv")
+#get full list of all possible GO terms
+allGO = unique(unlist(GOmapping_LF))
+GOverlap = gene_overlap(Pdom_SVM_GO$GO.ID, labourGO$consolidated_result$GO.ID, allGO)
+
+print(paste0("GO terms enriched among Polistes dominula SVM caste-predictive genes (p<0.05): ", nrow(Pdom_SVM_GO)))
+print(paste0("GO terms enriched among L Flavolineata labour genes (p<0.01): ", nrow(labourGO$consolidated_result)))
+print(paste0("Hypergeometric verlap between these two groups: Jaccard index = ",round(GOverlap$jaccard,digits = 3),", p = ",round(GOverlap$hypergeom,digits = 3)))
+```
+
+What about if we divide the GO terms into ones that are enriched among up- and down-regulated genes in each comparison? Overlap is significant in both directions. 
+
+```{r exp1-pdom-GO-overlap-directional}
+#import GO results from Pdominula
+Pdom_SVM_GOup = read.csv("/home/benjamin/Dropbox/Ben PhD/PhD Docs/Paper 2/Data sheets/GO/group_contrasts/SVM_GOup_0.05.csv")
+Pdom_SVM_GOdown = read.csv("/home/benjamin/Dropbox/Ben PhD/PhD Docs/Paper 2/Data sheets/GO/group_contrasts/SVM_GOdown_0.05.csv")
+
+#NB: because the baseline for the LF comparison was reproductives, genes that have LFC<0 here are upregulated *in queens*, which is why this looks backwards
+labourDEGs_up = results(dds.cohort.degs.labour) %>% subset(padj<0.05 & log2FoldChange<0) %>% row.names()
+GOscores.labour_up = as.numeric(row.names(exp1.gene.counts.clean) %in% labourDEGs_up) %>% 'names<-'(row.names(exp1.gene.counts.clean))
+labourGO_up = topGO_wrapper(geneScores = GOscores.labour_up,
+                         geneScoresDE = F,
+                         geneScoresDirection = NA,
+                         GOmapping = GOmapping_LF,
+                         algorithm = "weight01",
+                         statistic = "fisher",
+                         nodeSize = 10,
+                         discretisedDE = F,
+                         p = 0.01)
+GOverlap_up = gene_overlap(Pdom_SVM_GOup$GO.ID, labourGO_up$consolidated_result$GO.ID, allGO)
+print(paste0("GO terms enriched among SVM genes upregulated in Polistes dominula queens (p<0.05): ", nrow(Pdom_SVM_GOup)))
+print(paste0("GO terms enriched among genes upregulated in L flavolineata reproductives (p<0.01): ", nrow(labourGO_up$consolidated_result)))
+print(paste0("Hypergeometric verlap between these two groups: Jaccard index = ",round(GOverlap_up$jaccard,digits = 3),", p = ",round(GOverlap_up$hypergeom,digits = 3)))
+
+#NB: because the baseline for the LF comparison was reproductives, genes that have LFC<0 here are upregulated *in queens*, which is why this looks backwards
+labourDEGs_down = results(dds.cohort.degs.labour) %>% subset(padj<0.05 & log2FoldChange>0) %>% row.names()
+GOscores.labour_down = as.numeric(row.names(exp1.gene.counts.clean) %in% labourDEGs_down) %>% 'names<-'(row.names(exp1.gene.counts.clean))
+labourGO_down = topGO_wrapper(geneScores = GOscores.labour_down,
+                         geneScoresDE = F,
+                         geneScoresDirection = NA,
+                         GOmapping = GOmapping_LF,
+                         algorithm = "weight01",
+                         statistic = "fisher",
+                         nodeSize = 10,
+                         discretisedDE = F,
+                         p = 0.01)
+GOverlap_down = gene_overlap(Pdom_SVM_GOdown$GO.ID, labourGO_down$consolidated_result$GO.ID, allGO)
+print(paste0("GO terms enriched among SVM genes upregulated in Polistes dominula queens (p<0.05): ", nrow(Pdom_SVM_GOdown)))
+print(paste0("GO terms enriched among genes upregulated in L flavolineata foragers (p<0.01): ", nrow(labourGO_down$consolidated_result)))
+print(paste0("Hypergeometric verlap between these two groups: Jaccard index = ",round(GOverlap_down$jaccard,digits = 3),", p = ",round(GOverlap_down$hypergeom,digits = 3)))
+```
+##COMPARE ACTUAL GENES HERE
+
+
+
+# Experiment 2
+
+## Experimental design
+
+Approximately ninety potential nests were identified with a dominant egg-layer and numerous pupal caps (indicating that wasps would emerge shortly). On days 1-2 all wasps were captured before dawn and marked on all 90 nests. Once all the wasps were marked the experiment began on day 3. Firstly, all newly emerged wasps were marked and the date of emergence recorded. These were all identified as potential focal wasps. Once at least two focal wasps (three or four on larger nests) had emerged, non-focal wasps were removed, leaving the replacement focal wasps, plus the original dominant egg-layer (identified behaviourally). After 20 days nests were selected that had focal wasps of similar ages (within-rank age range of 5 days ± 3 days) for one of the following manipulations:
+  
+*   Group size = 3 & Removed individual = 2
+*   Group size = 4 & Removed individual = 2
+*   Group size = 4 & Removed individual = 3
+*   Group size = 5 & Removed individual = 2
+*   Group size = 5 & Removed individual = 3
+
+Once nests had the requisite 2-4 focal wasps (24 days), all nests were censused every 30 minutes during the peak foraging hours (07.00-11.00). This was done for 10 days to allow new focal wasps to settle into their rank on the nest. Each individual’s helping effort was estimated as the proportion of censuses during which she was not on the nes. 
+
+The manipulation was carried out after 10 days of censusing; before dawn, a focal wasp (rank 2 or rank 3, as described above) was removed directly from the nest and placed immediately in RNA later for genomic analysis (1st collection). Brood was also removed from the nests at this time. Brood was divided into three categories: eggs, small/medium larvae and large larvae. A proportion, R/N (where R is the number of adults removed and N is the original number of wasps), of each category was removed using fine tweezers. Pupae were not removed as they do not require feeding. 
+
+Finally, the helping effort of the newly ranked wasps was measured by censusing as before; nests were allowed 48 hours to settle, then were censused for 5 consecutive days. Some nests had to be removed from the experiment due to the loss of one or more focal female or because focal females didn’t emerge during the experimental period. During the census period, newly emerged wasps were removed immediately from the nests to retain the same ranking on focal nests. Seven days after manipulation, all wasps were collected from the nests and stored immediately in RNA later for brain dissections (2nd collection).
+
+Sequenced individuals divide into the following groups:
+
+  *   **R1_S:** Rank 1 individuals (n=21) (always from a manipulated nest)
+  *   **R2_C:** Rank 2 individuals that were removed as part of a manipulation (n=16) (rank 2 'controls')
+  *   **R2_S:** Rank 2 individuals from nests on which the rank 3 individual was removed (n=7)
+  *   **R2_R:** Rank 2 individuals that were previously rank 3 but were promoted following manipulation (n=14)
+  *   **R3_C:** Rank 3 individual that were removed as part of a manipulation (n=7) (rank 3 'controls')
+  *   **R3_R:** Rank 3 individuals that were previously rank 4 but were promoted following manipulation (n=15)
+  *   **R4_R:** Rank 4 individuals that were previously rank 5 but were promoted following manipulation (n=6)
+
+## Phenotypic results
+
+First, we look at foraging rates for all individuals prior to manipulation. This should represent the relationship between rank and foraging rate under 'normal' circumstances. We can see a pretty strong correlation between foraging rate and rank, although with a high dispersion for foraging rates among rank 2 and rank 3 individuals.
+
+```{r exp2-phenotype-foraging-before-with-rank}
+#plot time off nest against rank
+ggplot(exp2.phenodata.clean, aes(x = as.factor(Rank), y = OffNestBefore)) +
+  geom_boxplot() +
+  geom_point() +
+  xlab("Original Rank") +
+  ylab("Time off nest before manipulation") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+print("Relationship between rank and foraging rate prior to manipulation:")
+#the relationship is highly significant
+summary(lm(OffNestBefore~Rank, data = exp2.phenodata.clean))$coefficients
+```
+
+We also expect that individuals will exhibit higher mean foraging rates on smaller nests, since a smaller number of individuals are maintaining the same foraging effort. While there is no relationship between nest size and foraging rate when ignoring rank, including rank as a factor in an additive linear model reveals that both effects are present: individuals forage more both when they're of a lower rank and when there are fewer individuals in their nest. 
+
+```{r exp2-phenotype-foraging-before-with_size-and-rank}
+#plot time off nest against nest size
+ggplot(exp2.phenodata.clean, aes(x = as.factor(NestSize), y = OffNestBefore, color = Rank)) +
+  #geom_boxplot() +
+  geom_point() +
+  xlab("Original Rank") +
+  ylab("Time off nest before manipulation") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+print("Relationship between nest size and foraging rate prior to manipulation:")
+# the relationship is not significant
+summary(lm(OffNestBefore~NestSize, data = exp2.phenodata.clean))$coefficients
+
+print("Relationship between nest size, rank and foraging rate prior to manipulation:")
+#however, there is a relationship between nest size and foraging rate when we account for rank
+summary(lm(OffNestBefore~Rank + NestSize, data = exp2.phenodata.clean))$coefficients
+```
+
+Our next prediction is that individuals should alter their foraging rate when other individuals from the same nest are removed. Of course, there are two possible effects here: removing an individual makes the nest smaller, so individuals should forage more after manipulation; but, removing an individual also increases the rank of some individuals in the nest, so those individual may also *increase* their foraging rate. Alas, we lack the necessary controls to properly separate these effects- the only rank for which we can compare individuals' foraging rates before and after nest size manipulation without the confounding effect of rank changes is rank 2. 
+
+Foraging rate for this group does not change significantly following nest size manipulation, nor do we find strong evidence for changes in mean foraging rate for any other group (but in the latter cases it's impossible to tell if this is just the effect of individuals' rank increases being canceled out by the change in group size).
+
+```{r exp2-phenotype-foraging-change}
+treatments = c("Rank 1", "Rank 2\n(size manipulation)", "Rank 2\n(control)", "Rank 2\n(elevated rank)",
+           "Rank 3\n(control)", "Rank 3\n(elevated rank)", "Rank 4\n(elevated rank)")
+
+ggplot(subset(exp2.phenodata.clean,Control==F), aes(x = Treatment, y = OffNestChange)) +
+  geom_boxplot() +
+  geom_point() +
+  scale_x_discrete(labels = treatments[c(1:2,4,6:7)]) +
+  theme_bw() +
+  ggtitle("Change in time off nest following manipulation") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+Let's move on to ovarian data. These are fairly clear: rank 1individuals almost uniformly have well-developed ovaries with plenty of eggs, with all others having no ovarian development. A small number of size-manipulated rank 2 individuals are the exception, being somewhere intermediate in ovarian development. 
+
+```{r exp2-phenotype-ovarian}
+ggplot(exp2.phenodata.clean, aes(x = Treatment, y = NoEggs, label = WaspID)) +
+  geom_boxplot() +
+  #geom_text() +
+  geom_point() +
+  scale_x_discrete(labels = treatments) +
+  theme_bw() +
+  ggtitle("Number of eggs") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+ggplot(subset(exp2.phenodata.clean, !(is.na(Ovaries))), aes(x = Treatment, y = Ovaries)) +
+  geom_jitter(width = 0.05, height = 0.05) +
+  scale_x_discrete(labels = treatments) +
+  theme_bw() +
+  ggtitle("Ovarian score") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+## Gene expression results
+
+Let's first get a general idea of the shape of the data by performing PCA on all genes. The results don't tell us all that much- PCs 1 and 2 seem to be weakly structured by individuals' ranks, but there's no obvious clustering. 
+
+```{r exp2-pca-allgenes}
+# log-transform with a pseudocount
+pca.counts = log2(exp2.gene.counts.clean+1)
+#create pca object
+data.pca = prcomp(t(pca.counts))
+#extract PC data
+percent.var = (data.pca$sdev^2 / sum(data.pca$sdev^2))
+pca.out = list(values = data.frame(data.pca$x),
+               percent.var = percent.var)
+#connect to phenotypic data
+ggpcadata = pca.out$values %>% 
+  rownames_to_column(var = "WaspID") %>%
+  left_join(exp2.phenodata.clean,
+            by = "WaspID")
+#plot
+ggplot(ggpcadata, aes(x = PC1, y = PC2, color = FinalRank, shape = Treatment, label = WaspID)) +
+  geom_point(size = 5, position = position_jitter(width = 0.5,height=0.5)) +
+  #geom_text(vjust = -1) +
+  xlab(paste0("PC",1,": ",signif(pca.out$percent.var[1]*100, 3),"%")) +
+  ylab(paste0("PC",2,": ",signif(pca.out$percent.var[2]*100, 3),"%")) +
+  theme_bw() +
+  # scale_color_manual(name = "Treatment",
+  #                    values = brewer.pal(7, "Paired")) +
+  scale_shape_manual(name = "Treatment",
+                     values = c(8,15:20)) +
+  theme(panel.grid = element_line(color = "grey95"),
+        legend.title = element_text(face = "bold"),
+        axis.text.x = element_text(size = 11),
+        axis.text.y = element_text(size = 11),
+        axis.title = element_text(face = "bold", size =12))
+
+```
+
+We'll now assess differential expression between treatment groups to see if any stand out as being particularly different to one another. Two results stick out: 
+* Rank 1 individuals are strongly differentiated from every other treatment group *except* for unmanipulated rank 2 individuals from manipulated nests
+* Rank 3 controls seems to show fairly strong signals of differential expression with individuals that have been elevated in rank
+
+It's hard to know how to interpret these results, but the fact that Rank 1 individuals seem to be so clearly differentiated from other treatment groups suggests that we might want to consider leaving them out of any continuous analyses. We might also want to consider leaving out R2_S individuals. 
+
+```{r exp2-group-treatment-DEGs}
+# perform analysis 
+dds.gene = DESeqDataSetFromMatrix(countData = exp2.gene.counts.clean,
+                                  colData = exp2.phenodata.clean,
+                                  design = ~Treatment)
+
+# Run the default analysis for DESeq2 and generate results table. NA p-values are generated by 0 counts and outliers calculated by Cook's distance.
+dds.gene.deg = DESeq(dds.gene, fitType = "local", betaPrior = FALSE)
+
+# Check for outliers: none are apparent
+# print("Check for gene expression outliers")
+# par(mar=c(8,5,2,2))
+# boxplot(log10(assays(dds.gene.deg)[["cooks"]]), range=0, las=2)
+
+#list all possible combinations of treatment groups
+groups = as.character(unique(dds.gene.deg$Treatment))
+contrasts = t(combn(groups, 2))
+
+#create empty matrix to be populated with between-group comparisons
+DEGs = matrix(nrow = length(groups), 
+              ncol = length(groups), 
+              dimnames = list(groups,groups))
+
+gene.comparisons = c()
+
+#for each comparison, perform basic differential expression analysis 
+for(i in 1:nrow(contrasts)){
+  
+  comparison = results(dds.gene.deg, 
+                       contrast=c("Treatment", 
+                                  contrasts[i,1], 
+                                  contrasts[i,2]),     
+                       alpha = 0.05,
+                       lfcThreshold = log2(1))
+  
+  #give comparison object a meaningful name for future reference and save that name in a list
+  assign(paste0(contrasts[i,1], ".",contrasts[i,2],".gene.comparison"), comparison)
+  gene.comparisons = append(paste0(contrasts[i,1], ".",contrasts[i,2],".gene.comparison"),gene.comparisons)
+  
+  DEGs[contrasts[i,1],contrasts[i,2]] = (sum(comparison$padj<0.05, na.rm = TRUE))
+  DEGs[contrasts[i,2],contrasts[i,1]] = DEGs[contrasts[i,1],contrasts[i,2]]
+  
+}
+
+# make a figure 
+DEGs[upper.tri(DEGs)] = NA
+
+DEGs_plot = reshape2::melt(DEGs, na.rm = TRUE)
+
+DEGplot_lfc0 = ggplot(data = DEGs_plot, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile(color = "black") +
+  geom_text(aes(label=value)) +
+  scale_fill_gradient(low = "cornsilk", high = "red", 
+                      limit = c(0,1000), space = "Lab", 
+                      name="Number of differentially\nexpressed genes at lfc = 0") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1,
+                                   size = 12, hjust = 1),
+        axis.text.y = element_text(size = 12),
+        axis.title = element_blank()) +
+  coord_fixed()
+
+#create empty matrix to be populated with between-group comparisons
+DEGs = matrix(nrow = length(groups), 
+              ncol = length(groups), 
+              dimnames = list(groups,groups))
+
+gene.comparisons = c()
+
+#for each comparison, perform basic differential expression analysis 
+for(i in 1:nrow(contrasts)){
+  
+  comparison = results(dds.gene.deg, 
+                       contrast=c("Treatment", 
+                                  contrasts[i,1], 
+                                  contrasts[i,2]),     
+                       alpha = 0.05,
+                       lfcThreshold = log2(1.5))
+  
+  #give comparison object a meaningful name for future reference and save that name in a list
+  assign(paste0(contrasts[i,1], ".",contrasts[i,2],".gene.comparison"), comparison)
+  gene.comparisons = append(paste0(contrasts[i,1], ".",contrasts[i,2],".gene.comparison"),gene.comparisons)
+  
+  DEGs[contrasts[i,1],contrasts[i,2]] = (sum(comparison$padj<0.05, na.rm = TRUE))
+  DEGs[contrasts[i,2],contrasts[i,1]] = DEGs[contrasts[i,1],contrasts[i,2]]
+  
+}
+
+# make a figure 
+DEGs[upper.tri(DEGs)] = NA
+
+DEGs_plot = reshape2::melt(DEGs, na.rm = TRUE)
+
+DEGplot_lfc1.5 = ggplot(data = DEGs_plot, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile(color = "black") +
+  geom_text(aes(label=value)) +
+  scale_fill_gradient(low = "cornsilk", high = "red", 
+                      limit = c(0,500), space = "Lab", 
+                      name="Number of differentially\nexpressed genes at\nlfc = log2(1.5)") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1,
+                                   size = 12, hjust = 1),
+        axis.text.y = element_text(size = 12),
+        axis.title = element_blank()) +
+  coord_fixed()
+
+plot(ggarrange(DEGplot_lfc0, DEGplot_lfc1.5, ncol = 1))
+```
+
+We'll now look to see which genes' expression (if any) are significantly correlated with rank, age and foraging rate when treating those as continuous variables. As rank 1 seems to stand out as being very different to all other treatment groups, we'll try running each analysis both with and without the inclusion of rank 1 individuals. Some key results from this: 
+
+* Rank 1 individuals strongly drive our results! After excluding rank 1s, we find greatly reduced numbers of differentially expressed genes
+* Individuals' original ranks appear to be better predictors of gene expression than do their new ranks 
+* Foraging effort is associated with a much larger number of genes than either rank measure. 
+* Surprisingly, we don't actually find any correlation between age and gene expression
+
+```{r exp2-continuous-DEGs}
+#create dataframe with rank 1 individuals excluded
+exp2.phenodata.clean.no1 = subset(exp2.phenodata.clean, Rank != 1)
+exp2.gene.counts.clean.no1 = exp2.gene.counts.clean[,as.character(exp2.phenodata.clean.no1$WaspID)]
+
+#DEGs with original rank across all individuals
+originalRankDEGs = DESeq_wrap(data = exp2.phenodata.clean,
+                              genes = exp2.gene.counts.clean,
+                              formula = "~ Rank",
+                              detail = T) %>% 
+  .$Rank %>% subset(padj<0.05) %>% row.names()
+
+#DEGs with final rank rank across all individuals
+finalRankDEGs = DESeq_wrap(data = exp2.phenodata.clean,
+                      genes = exp2.gene.counts.clean,
+                      formula = "~ FinalRank",
+                      detail = T) %>% 
+  .$FinalRank %>% subset(padj<0.05) %>% row.names()
+
+#DEGs with foraging rate across all individuals
+offNestDEGs = DESeq_wrap(data = exp2.phenodata.clean,
+                      genes = exp2.gene.counts.clean,
+                      formula = "~ OffNestFinal",
+                      detail = T) %>% 
+  .$OffNestFinal %>% subset(padj<0.05) %>% row.names()
+
+##DEGs with original rank excluding rank 1
+originalRankDEGs_no1 = DESeq_wrap(data = exp2.phenodata.clean.no1,
+                                  genes = exp2.gene.counts.clean.no1,
+                                  formula = "~ Rank",
+                                  detail = T) %>% 
+  .$Rank %>% subset(padj<0.05) %>% row.names()
+
+#DEGs with final rank rank excluding rank 1
+finalRankDEGs_no1 = DESeq_wrap(data = exp2.phenodata.clean.no1,
+                      genes = exp2.gene.counts.clean.no1,
+                      formula = "~ FinalRank",
+                      detail = T) %>% 
+  .$FinalRank %>% subset(padj<0.05) %>% row.names()
+
+#DEGs with foraging rate excluding rank 1
+offNestDEGs_no1 = DESeq_wrap(data = exp2.phenodata.clean.no1,
+                      genes = exp2.gene.counts.clean.no1,
+                      formula = "~ OffNestFinal",
+                      detail = T) %>% 
+  .$OffNestFinal %>% subset(padj<0.05) %>% row.names()
+
+#DEGs with age excluding rank 1
+ageDEGs_no1 = DESeq_wrap(data = exp2.phenodata.clean.no1,
+                      genes = exp2.gene.counts.clean.no1,
+                      formula = "~ Age",
+                      detail = T) %>% 
+  .$Age %>% subset(padj<0.05) %>% row.names()
+
+
+data.frame("Trait" = c("Original rank", "Final rank", "Foraging rate", "Age"),
+           "DEG_all" = c(length(originalRankDEGs),length(finalRankDEGs),length(offNestDEGs),NA),
+           "DEGs_noRank1" = c(length(originalRankDEGs_no1),length(finalRankDEGs_no1),length(offNestDEGs_no1),length(ageDEGs_no1)))
+
+```
+
+* It's also worth noting that the genetic signature of rank seems to be entirely subsumed by foraging rate- when we take the residuals of rank on foraging rate and combine these with foraging rate in an additive model, we find no DEGs with the residuals. By contrast, an additive model with Rank and (ForagingRate~Rank)$residuals as the factors identifies ~20 genes whose expression is correlated with the residuals. 
+
+```{r exp2-rank-foraging-residual-DEGs}
+rankOffNestResids = lm(data = exp2.phenodata.clean.no1, formula = OffNestFinal ~ Rank, na.action = na.exclude)
+offNestRankResids = lm(data = exp2.phenodata.clean.no1, formula = Rank ~ OffNestFinal, na.action = na.exclude)
+
+exp2.phenodata.clean.no1.resids = mutate(exp2.phenodata.clean.no1, 
+                                     OffNestFinalResids = residuals(rankOffNestResids),
+                                     RankResids = residuals(offNestRankResids))
+
+offNestWithRankResidsDEGs = DESeq_wrap(data = exp2.phenodata.clean.no1.resids,
+                                       genes = exp2.gene.counts.clean,
+                                       formula = "~ OffNestFinal + RankResids",
+                                       detail = T)
+
+print(paste0("Additive model with foraging rate and residuals of rank on foraging rate: ",
+             nrow(subset(offNestWithRankResidsDEGs$OffNestFinal,padj<0.05)),
+             " genes associated with foraging rate plus ",
+             nrow(subset(offNestWithRankResidsDEGs$RankResids,padj<0.05)),
+             " genes associated with rank residuals"))
+
+rankWithOffNestResidsDEGs = DESeq_wrap(data = exp2.phenodata.clean.no1.resids,
+                                       genes = exp2.gene.counts.clean,
+                                       formula = "~ Rank + OffNestFinalResids",
+                                       detail = T)
+
+print(paste0("Additive model with rank and residuals of foraging rate on rank: ",
+             nrow(subset(rankWithOffNestResidsDEGs$Rank,padj<0.05)),
+             " genes associated with rank plus ",
+             nrow(subset(rankWithOffNestResidsDEGs$OffNestFinalResids,padj<0.05)),
+             " genes associated with foraging rate residuals"))
+#nb: shouldn't these add up to the same number as above? E.g. wouldn't we expect these two to combine to make ~254? 
+```
+
+These anlyses suggest that foraging rate per se, rather than rank, seems to be the most important determinant of gene expression, at least among non-R1 individuals (this result is recapitulated if we rerun these analyses including rank 1 individuals). Now we perform GO analysis on the full set of ~250 genes associated with foraging rate: doing so identifies a decent number of GO terms, many of them associated with protein binding or bioenergetic processes. Also in there is *Multicellular organism reproduction*, which is nice to see!
+
+```{r exp2-foraging-GO}
+GOscores.foraging = as.numeric(row.names(exp2.gene.counts.clean) %in% offNestDEGs_no1) %>% 'names<-'(row.names(exp2.gene.counts.clean))
+foragingGO =  topGO_wrapper(geneScores = GOscores.foraging,
+                               geneScoresDE = F,
+                               geneScoresDirection = NA,
+                               GOmapping = GOmapping_LF,
+                               algorithm = "weight01",
+                               statistic = "fisher",
+                               nodeSize = 10,
+                               discretisedDE = F,
+                               p = 0.01)
+
+print(paste0("GO terms enriched among genes upregulated with foraging rate at p<0.01: ", nrow(foragingGO$consolidated_result)))
+
+topForagingGO = foragingGO$consolidated_result[order(foragingGO$consolidated_result$result, decreasing = T)[1:20],]
+#capitalize and then add newline characters between words ever 30 characters
+topForagingGO$Term = paste0(toupper(str_sub(topForagingGO$Term,1,1)),str_sub(topForagingGO$Term,2,))
+topForagingGO$Term = gsub("(.{32,}?)\\s", "\\1\n", topForagingGO$Term)
+#convert to log10 scale
+topForagingGO$result = abs(log10(as.numeric(topForagingGO$result)))
+#plot
+GOplot_foraging = ggplot(topForagingGO, aes(y = reorder(Term, result*(-1)), x = result, fill = Ontology)) +
+  geom_bar(stat = "identity", 
+           colour = "black", 
+           size = 1,
+           width = 0.8) +
+  # scale_x_continuous(expand = c(0,0,0.1,0),
+  #                    breaks = seq(0,5,by=1)) +
+  xlab(label = "-log10 p-value") +
+  ylab(label = "GO term") +
+  #scale_fill_manual(values = wes_palette(name= "FantasticFox1",n=5)[2:4]) +
+  scale_fill_manual(values = brewer.pal(3,"Blues")) +
+  ggtitle("Top 20 highly-enriched GO terms (p<0.01)") +
+  theme_bw() +
+  theme(panel.grid = element_line(color = "grey95"),
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        legend.title = element_text(face = "bold"),
+        axis.text.x = element_text(size = 11),
+        axis.text.y = element_text(size = 9),
+        axis.title = element_text(face = "bold", size =12))
+
+plot(GOplot_foraging)
+```
+```{r exp2-directional-foraging_GO, eval=F}
+offNestDEGs_forGO = DESeq_wrap(data = exp2.phenodata.clean.no1,
+                               genes = exp2.gene.counts.clean.no1,
+                               formula = "~ OffNestFinal",
+                               detail = T)
+
+foragingGO_up =  topGO_wrapper(geneScores = offNestDEGs_forGO$OffNestFinal,
+                            geneScoresDE = T,
+                            geneScoresDirection = "Up",
+                            GOmapping = GOmapping_LF,
+                            algorithm = "weight01",
+                            statistic = "fisher",
+                            nodeSize = 10,
+                            discretisedDE = T,
+                            p = 0.01)
+  
+print(paste0("GO terms enriched among genes upregulated with foraging rate at p<0.01: ", nrow(foragingGO_up$consolidated_result)))
+
+#take just the top 20 terms
+topForagingGO_up = foragingGO_up$consolidated_result[order(foragingGO_up$consolidated_result$result, decreasing = T)[1:20],]
+#capitalize and then add newline characters between words ever 30 characters
+topForagingGO_up$Term = paste0(toupper(str_sub(topForagingGO_up$Term,1,1)),str_sub(topForagingGO_up$Term,2,))
+topForagingGO_up$Term = gsub("(.{32,}?)\\s", "\\1\n", topForagingGO_up$Term)
+#convert to log10 scale
+topForagingGO_up$result = abs(log10(as.numeric(topForagingGO_up$result)))
+#plot
+GOplot_foragingUp = ggplot(topForagingGO_up, aes(y = reorder(Term, result*(-1)), x = result, fill = Ontology)) +
+  geom_bar(stat = "identity", 
+           colour = "black", 
+           size = 1,
+           width = 0.8) +
+  # scale_x_continuous(expand = c(0,0,0.1,0),
+  #                    breaks = seq(0,5,by=1)) +
+  xlab(label = "-log10 p-value") +
+  ylab(label = "GO term") +
+  #scale_fill_manual(values = wes_palette(name= "FantasticFox1",n=5)[2:4]) +
+  scale_fill_manual(values = brewer.pal(3,"Blues")) +
+  ggtitle("Top 20 highly-enriched GO terms (p<0.01)") +
+  theme_bw() +
+  theme(panel.grid = element_line(color = "grey95"),
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        legend.title = element_text(face = "bold"),
+        axis.text.x = element_text(size = 11),
+        axis.text.y = element_text(size = 9),
+        axis.title = element_text(face = "bold", size =12))
+
+foragingGO_down =  topGO_wrapper(geneScores = offNestDEGs_forGO$OffNestFinal,
+                            geneScoresDE = T,
+                            geneScoresDirection = "Down",
+                            GOmapping = GOmapping_LF,
+                            algorithm = "weight01",
+                            statistic = "fisher",
+                            nodeSize = 10,
+                            discretisedDE = T,
+                            p = 0.01)
+  
+print(paste0("GO terms enriched among genes downregulated with foraging rate at p<0.01: ", nrow(foragingGO_down$consolidated_result)))
+
+#take just the top 20 terms
+topForagingGO_down = foragingGO_down$consolidated_result[order(foragingGO_down$consolidated_result$result, decreasing = T)[1:20],]
+#capitalize and then add newline characters between words ever 30 characters
+topForagingGO_down$Term = paste0(toupper(str_sub(topForagingGO_down$Term,1,1)),str_sub(topForagingGO_down$Term,2,))
+topForagingGO_down$Term = gsub("(.{32,}?)\\s", "\\1\n", topForagingGO_down$Term)
+#convert to log10 scale
+topForagingGO_down$result = abs(log10(as.numeric(topForagingGO_down$result)))
+#plot
+GOplot_foragingDown = ggplot(topForagingGO_down, aes(y = reorder(Term, result*(-1)), x = result, fill = Ontology)) +
+  geom_bar(stat = "identity", 
+           colour = "black", 
+           size = 1,
+           width = 0.8) +
+  # scale_x_continuous(expand = c(0,0,0.1,0),
+  #                    breaks = seq(0,5,by=1)) +
+  xlab(label = "-log10 p-value") +
+  ylab(label = "GO term") +
+  #scale_fill_manual(values = wes_palette(name= "FantasticFox1",n=5)[2:4]) +
+  scale_fill_manual(values = brewer.pal(3,"Blues")) +
+  ggtitle("Top 20 highly-enriched GO terms (p<0.01)") +
+  theme_bw() +
+  theme(panel.grid = element_line(color = "grey95"),
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        legend.title = element_text(face = "bold"),
+        axis.text.x = element_text(size = 11),
+        axis.text.y = element_text(size = 9),
+        axis.title = element_text(face = "bold", size =12))
+```
+
+It's interesting to see so many GO terms associated with basal functions such as protein binding enriched in our set of foraging genes- this is reminiscent of the sets of GO terms we found enriched among *P dominula* SVM genes and also among genes that were differentially expressed between reproductives and foragers in experiment 1. In fact, there's a strongly significant overlap between GO terms that are enriched with foraging rate in experiment 2 and genes that differentiate reproductives and foragers in experiment 1, which isn't very surprising but is still good to know. On the other hand, there are no shared GO terms between experiment 2 foraging genes and *P dominula* SVM genes. 
+
+```{r exp1-exp2-pdom-GO-overlap}
+Pdom_SVM_GO = read.csv("/home/benjamin/Dropbox/Ben PhD/PhD Docs/Paper 2/Data sheets/GO/group_contrasts/SVM_GOall_0.05.csv")
+#get full list of all possible GO terms
+allGO = unique(unlist(GOmapping_LF))
+GOverlap_exp2 = gene_overlap(Pdom_SVM_GO$GO.ID, foragingGO$consolidated_result$GO.ID, allGO)
+GOverlap_exp1 = gene_overlap(Pdom_SVM_GO$GO.ID, labourGO$consolidated_result$GO.ID, allGO)
+GOVerlap_exp1_exp2 = gene_overlap(labourGO$consolidated_result$GO.ID, foragingGO$consolidated_result$GO.ID, allGO)
+
+print(paste0("GO terms enriched among Polistes dominula SVM caste-predictive genes (p<0.05): ", nrow(Pdom_SVM_GO)))
+print(paste0("GO terms enriched among L Flavolineata experiment 1 labour genes (p<0.01): ", nrow(labourGO$consolidated_result)))
+print(paste0("GO terms enriched among L Flavolineata experiment 2 foraging genes (p<0.01): ", nrow(foragingGO$consolidated_result)))
+
+print(paste0("Hypergeometric verlap between these experiment 1 and experiment 2: Jaccard index = ",round(GOVerlap_exp1_exp2$jaccard,digits = 3),", p = ",round(GOVerlap_exp1_exp2$hypergeom,digits = 3)))
+print(paste0("Hypergeometric verlap between these P dominula SVM genes and experiment 2: Jaccard index = ",round(GOverlap_exp2$jaccard,digits = 3),", p = ",round(GOverlap_exp2$hypergeom,digits = 3)))
+```
+
+Also unsurprising but important: the set of experiment 1 foraging vs reproductive genes overlap significantly with the set of experiment 2 foraging genes. 
+
+```{r exp1-exp2-gene-overlap}
+commonGenes = intersect(row.names(exp1.gene.counts.clean),row.names(exp2.gene.counts.clean))
+gene_overlap(labourDEGs, offNestDEGs_no1, commonGenes)
+```
+
+*NB: we'd also like to ask whether the sets of genes (not just the GO terms) that vary with reproductive investment in experiments 1 and 2 overlap with the genes implicated in the Pdom SVM, but to do this I need to generate orthologues between the two- this is a work in progress.*
+
+It's worth noting that the above analyses combine all non-rank 1 individuals, irrespective of whether they changed rank or not. Unfortunately, the experimental design does not make it easy to compare control to rank-changed individuals. The interesting comparison would be between individuals who originated at the same rank, but one of which increased in rank while the other did not. The only rank for which these data are available is rank 3- we have rank 3 controls and individuals that were promoted from rank 3 to rank 2. Unfortunately, the controls and the elevated individuals are also differentiated by colony size manipulation (controls were from unmanipulated colonies)... therefore this comparison is a bit crap, as we can't separate out the effects that are a result of colony manipulation and those that are a result of changes in rank. Honestly, I don't know how to deal with this in a way that would be defensible, so I'm going to ignore it for now. 
+
+Instead, let's now perform WGCNA on all non-rank 1 individuals together. Doing so, we find two modules ("darkturquoise" and "green") whose expression is quite strongly  correlated with foraging rate (one positively, one negatively). Darkturquoise is a small module with 83 genes, while green is larger at 606 genes.
+
+```{r exp2-WGCNA}
+# Perform filtering- we apply a more stringent filtering process here, because WGCNA benefits from cleaner data
+# Here we remove any samples that don't have at least 10 counts in at least ~90% of samples
+exp2.gene.count.clean.normalize =  exp2.gene.counts.clean.no1[rowSums(exp2.gene.counts.clean.no1 > 10) > ceiling(ncol(exp2.gene.counts.clean.no1)*0.9), ]
+#print(paste0(nrow(exp2.gene.count.clean.normalize),"/",nrow(exp2.gene.counts.clean.no1)," genes remain"))
+# We also normalize the data
+exp2.gene.count.clean.normalize = exp2.gene.count.clean.normalize  %>% varianceStabilizingTransformation() %>% normalizeBetweenArrays()
+
+#clean data
+datExpr0 = as.data.frame(t(exp2.gene.count.clean.normalize))
+names(datExpr0) = row.names(exp2.gene.count.clean.normalize)
+rownames(datExpr0) = colnames(exp2.gene.count.clean.normalize)
+#check for bad entries
+gsg = goodSamplesGenes(datExpr0, verbose = 0)
+#gsg$allOK
+
+sampleTree = hclust(dist(datExpr0), method = "average");
+# Plot the sample tree: Open a graphic output window of size 12 by 9 inches
+# The user should change the dimensions if the window is too large or too small.
+sizeGrWindow(12,9)
+#pdf(file = "Plots/sampleClustering.pdf", width = 12, height = 9);
+par(cex = 0.6);
+par(mar = c(0,4,2,0))
+plot(sampleTree, main = "Sample clustering to detect outliers", sub="", xlab="", cex.lab = 1.5,
+     cex.axis = 1.5, cex.main = 2)
+#here we plot a cutting line
+#note that if we had used a smaller value here, we could cut the cluster of samples to the right, which arguably are also outliers
+abline(h = 50, col = "red")
+
+# Determine cluster under the line
+clust = cutreeStatic(sampleTree, cutHeight = 50, minSize = 10)
+#table(clust)
+# clust 1 contains the samples we want to keep.
+keepSamples = (clust==1)
+datExpr = datExpr0[keepSamples, ]
+nGenes = ncol(datExpr)
+nSamples = nrow(datExpr)
+
+# get phenotypic data and clean it up
+traitdata = exp2.phenodata.clean.no1
+traitdata$NewRank = as.numeric(substr(traitdata$Treatment,2,2))
+# allTraits = dplyr::select(traitdata, c("WaspID","Rank","NestSize","OffNestAfter","Ovaries","NoEggs","Inseminated","Control","Treatment")) %>%
+#   mutate_at(c("Rank","NestSize","OffNestAfter","NoEggs"), as.numeric)
+allTraits = dplyr::select(traitdata, c("WaspID","OffNestFinal","Rank","Age"))
+
+# Form a data frame analogous to expression data that will hold the clinical traits.
+samples = rownames(datExpr);
+traitRows = match(samples, allTraits$WaspID);
+datTraits = allTraits[traitRows, -1];
+rownames(datTraits) = allTraits[traitRows, 1];
+collectGarbage();
+
+# Now let's begin the module clustering process by identifying a suitable soft-power threshold
+# Choose a set of soft-thresholding powers
+powers = c(c(1:10), seq(from = 12, to=20, by=2))
+# Call the network topology analysis function
+# a note on signed vs unsigned networks:
+# networks in WGCNA can be signed or unsigned- in the latter, negative correlations are considered as informative as positive ones
+# generally speaking, the package authors (and also Chris!) recommend signed over unsigned. Signed just makes more biological sense
+# there are two ways of doing signed- 'signed' and signed hybrid'.
+# these two usually produce similar results, but remember that powers for the hybrid are effectively half of those for the normal signed 
+# more here: https://peterlangfelder.com/2018/11/25/__trashed/
+# sft = pickSoftThreshold(datExpr, powerVector = powers, verbose = 0, networkType="signed hybrid") #NB: we don't run this here so that it doesn't print out to the markdown
+# # Plot the results:
+# # sizeGrWindow(9, 5)
+# # par(mfrow = c(1,2))
+# par(mfrow=c(1,2),oma = c(0, 0, 0.3, 0))
+# cex1 = 0.9;
+# # Scale-free topology fit index as a function of the soft-thresholding power
+# plot(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
+#      xlab="Soft Threshold (power)",ylab="Scale Free Topology Model Fit,signed R^2",type="n",
+#      main = paste("Scale independence"));
+# text(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
+#      labels=powers,cex=cex1,col="red");
+# # this line corresponds to using an R^2 cut-off of h
+# abline(h=0.90,col="red")
+# # Mean connectivity as a function of the soft-thresholding power
+# plot(sft$fitIndices[,1], sft$fitIndices[,5],
+#      xlab="Soft Threshold (power)",ylab="Mean Connectivity", type="n",
+#      main = paste("Mean connectivity"))
+# text(sft$fitIndices[,1], sft$fitIndices[,5], labels=powers, cex=cex1,col="red")
+# mtext("Signed Hybrid", outer = T, cex = 1.5, line = -1.2)
+# We never quite reach a scale-free topology fit of 0.9...
+# We'll pick a soft-power value of 6, which is the lowest number that gets us above 0.8 and is also the inflection point
+softPower = 6
+# Calculate adjacencies
+adjacency = adjacency(datExpr, power = softPower, type = "signed hybrid");
+# Turn adjacency into topological overlap (this will take a while)
+#TOM = TOMsimilarity(adjacency,verbose = 0);
+#calculating TOMs is very slow, so here we just load the output of a pre-performed analysis directly
+load("/home/benjamin/Desktop/LF2_TOM_no_rank1.RData")
+dissTOM = 1-TOM
+
+# Call the hierarchical clustering function
+geneTree = hclust(as.dist(dissTOM), method = "average");
+# # Plot the resulting clustering tree (dendrogram)
+# sizeGrWindow(12,9)
+# plot(geneTree, xlab="", sub="", main = "Gene clustering on TOM-based dissimilarity",
+#      labels = FALSE, hang = 0.04);
+
+# We like large modules, so we set the minimum module size relatively high:
+minModuleSize = 30;
+# Module identification using dynamic tree cut:
+dynamicMods = cutreeDynamic(dendro = geneTree, distM = dissTOM,
+                            deepSplit = 2, pamRespectsDendro = FALSE,
+                            minClusterSize = minModuleSize,verbose = 0);
+#this generates 25 modules (plus module 0 = unassigned genes)
+# 26 modules with sample cutheight = 60
+#table(dynamicMods)
+
+# Convert numeric lables into colors
+dynamicColors = labels2colors(dynamicMods)
+# table(dynamicColors)
+# # Plot the dendrogram and colors underneath
+# sizeGrWindow(8,6)
+# plotDendroAndColors(geneTree, dynamicColors, "Dynamic Tree Cut",
+#                     dendroLabels = FALSE, hang = 0.03,
+#                     addGuide = TRUE, guideHang = 0.05,
+#                     main = "Gene dendrogram and module colors")
+
+# Calculate eigengenes
+MEList = moduleEigengenes(datExpr, colors = dynamicColors)
+MEs = MEList$eigengenes
+# Calculate dissimilarity of module eigengenes
+MEDiss = 1-cor(MEs);
+# Cluster module eigengenes
+METree = hclust(as.dist(MEDiss), method = "average");
+# # Plot the result
+# sizeGrWindow(7, 6)
+# plot(METree, main = "Clustering of module eigengenes",
+#      xlab = "", sub = "")
+
+#we pick a cut height of 0.15, i.e. we merge modules with >=85% similarity
+MEDissThres = 0.15
+# # Plot the cut line into the dendrogram
+# abline(h=MEDissThres, col = "red")
+# Call an automatic merging function
+merge = mergeCloseModules(datExpr, dynamicColors, cutHeight = MEDissThres, verbose = 0)
+# The merged module colors
+mergedColors = merge$colors;
+# Eigengenes of the new merged modules:
+mergedMEs = merge$newMEs;
+# now we have 20 modules
+# table(mergedColors)
+
+# sizeGrWindow(12, 9)
+# # # #pdf(file = "Plots/geneDendro-3.pdf", wi = 9, he = 6)
+# plotDendroAndColors(geneTree, cbind(dynamicColors, mergedColors),
+#                     c("Dynamic Tree Cut", "Merged dynamic"),
+#                     dendroLabels = FALSE, hang = 0.03,
+#                     addGuide = TRUE, guideHang = 0.05)
+# #dev.off()
+
+# Rename to moduleColors
+moduleColors = mergedColors
+# Construct numerical labels corresponding to the colors
+colorOrder = c("grey", standardColors(50));
+moduleLabels = match(moduleColors, colorOrder)-1;
+MEs = mergedMEs;
+
+MEs0 = moduleEigengenes(datExpr, moduleColors)$eigengenes
+MEs = orderMEs(MEs0)
+moduleTraitCor = cor(MEs, datTraits, use = "p");
+moduleTraitPvalue = corPvalueStudent(moduleTraitCor, nSamples);
+
+padjmatrix = matrix(apply(signif(moduleTraitPvalue), 2, function (x) p.adjust(x,method = "BH")),
+                    nrow = nrow(moduleTraitPvalue), 
+                    ncol = ncol(moduleTraitPvalue))
+
+textMatrix = paste(signif(moduleTraitCor, 2), "\n(",
+                   signif(c(padjmatrix),2), ")", sep = "");
+dim(textMatrix) = dim(moduleTraitCor)
+
+padjmelt = 
+  padjmatrix %>% 
+  data.frame() %>% 
+  'colnames<-'(colnames(datTraits)) %>%
+  'rownames<-'(colnames(MEs)) %>%
+  rownames_to_column(var = "modcolor") %>%
+  reshape2::melt(id.vars = "modcolor") 
+
+padjmelt$modcolor = factor(stringr::str_sub(colnames(MEs),3,), levels = stringr::str_sub(colnames(MEs),3,))
+
+SimpleNames = paste0("Module ",c(ncol(MEs):1))
+
+gg_module_pheno = ggplot(data = padjmelt, aes(x = variable, y = modcolor)) +
+  geom_tile(aes(fill = value),color = "gray", size=.75, width=1, height = 1) +
+  geom_text(aes(label=c(textMatrix)), 
+            lineheight = 0.75, size = 3.5) +
+  # scale_x_discrete("Trait",
+  #                  expand = c(0,0),
+  #                  labels = c("Rank\n(before)",
+  #                             "Rank\n(after)",
+  #                             "Nest\nsize",
+  #                             "Time\noff nest",
+  #                             "Number\nof eggs"),
+  #                  position = "top") +
+  scale_y_discrete("Module",
+                   expand = c(0,0),
+                   #labels = SimpleNames,
+                   limits = rev(levels(padjmelt$modcolor))) +
+  scale_fill_gradientn(colours = colorRampPalette(rev(c("#FFFFFF",brewer.pal(n = 9, name = "Reds")[1:5])),bias=6)(20),
+                       breaks = c(0.0,0.05,1),
+                       expand = c(0,0),
+                       limits = c(0,1),
+                       guide = guide_colourbar(barheight = 25,
+                                               #title = "p-value\n(adjusted)",
+                                               title = "p-value\n(adjusted)",
+                                               title.vjust = 2,
+                                               frame.colour = "black", 
+                                               frame.linewidth = 1.5)) +
+  theme_bw() +
+  theme(panel.grid = element_blank(),
+        legend.title = element_text(face = "bold"),
+        axis.text = element_text(face = "bold",size =11, color = "grey40"),
+        axis.title = element_text(face = "bold", size =12),
+        axis.title.x = element_blank())
+
+```
+```{r testmodule}
+plot(gg_module_pheno)
+```
+
+
+The centrality of genes within both modules is strongly correlated with the significance of those genes as predictors of foraging rate, which suggests that the relationship between the modules and foraging rate is more than coincidental:
+
+```{r exp2-WGCNA-foraging-centrality}
+#focus on foraging rate
+# Define variable weight containing the weight column of datTrait
+OffNestFinal = as.data.frame(datTraits$OffNestFinal);
+names(OffNestFinal) = "OffNestFinal"
+modNames = substring(names(MEs), 3)
+geneModuleMembership = as.data.frame(cor(datExpr, MEs, use = "p"));
+MMPvalue = as.data.frame(corPvalueStudent(as.matrix(geneModuleMembership), nSamples))
+names(geneModuleMembership) = paste("MM", modNames, sep="");
+names(MMPvalue) = paste("p.MM", modNames, sep="");
+geneTraitSignificance = as.data.frame(cor(datExpr, OffNestFinal, use = "p"));
+GSPvalue = as.data.frame(corPvalueStudent(as.matrix(geneTraitSignificance), nSamples));
+names(geneTraitSignificance) = paste("GS.", names(OffNestFinal), sep="");
+names(GSPvalue) = paste("p.GS.", names(OffNestFinal), sep="")
+
+# look at gene weights within module together with those gene's correlation with OffNestFinal
+module = "darkturquoise" #yes, cor = 0.58
+column = match(module, modNames);
+moduleGenes = moduleColors==module;
+sizeGrWindow(7, 7);
+par(mfrow = c(1,1));
+verboseScatterplot(abs(geneModuleMembership[moduleGenes, column]),
+                   abs(geneTraitSignificance[moduleGenes, 1]),
+                   xlab = paste("Module Membership in", module, "module"),
+                   ylab = "Gene significance for foraging rate",
+                   main = paste("Module membership vs. gene significance\n"),
+                   cex.main = 1.2, cex.lab = 1.2, cex.axis = 1.2, col = module)
+
+
+# look at gene weights within module together with those gene's correlation with OffNestFinal
+module = "green" #yes, cor = 0.41
+column = match(module, modNames);
+moduleGenes = moduleColors==module;
+sizeGrWindow(7, 7);
+par(mfrow = c(1,1));
+verboseScatterplot(abs(geneModuleMembership[moduleGenes, column]),
+                   abs(geneTraitSignificance[moduleGenes, 1]),
+                   xlab = paste("Module Membership in", module, "module"),
+                   ylab = "Gene significance for foraging rate",
+                   main = paste("Module membership vs. gene significance\n"),
+                   cex.main = 1.2, cex.lab = 1.2, cex.axis = 1.2, col = module)
+
+# turqGenes = row.names(exp2.gene.count.clean.normalize)[moduleGenes]
+```
+
+Looking at the GO terms associated with these two modules: darkturquoise is associated with a smaller set of terms, with an emphasis on sensory processes, while green is associated with a larger set of terms that include biosynthetic and respiratory processes. 
+
+```{r exp2-WGCNA-GO}
+GOscores.darkturquoise = as.numeric(moduleColors=="darkturquoise") %>% 'names<-'(row.names(exp2.gene.count.clean.normalize))
+darkturquoiseGO = topGO_wrapper(geneScores = GOscores.darkturquoise,
+                             geneScoresDE = F,
+                             geneScoresDirection = NA,
+                             GOmapping = GOmapping_LF,
+                             algorithm = "weight01",
+                             statistic = "fisher",
+                             nodeSize = 10,
+                             discretisedDE = F,
+                             p = 0.01)
+#darkturquoiseGO$consolidated_result #18 terms: visual perception, feeding
+
+GOscores.green = as.numeric(moduleColors=="green") %>% 'names<-'(row.names(exp2.gene.count.clean.normalize))
+greenGO = topGO_wrapper(geneScores = GOscores.green,
+                        geneScoresDE = F,
+                        geneScoresDirection = NA,
+                        GOmapping = GOmapping_LF,
+                        algorithm = "weight01",
+                        statistic = "fisher",
+                        nodeSize = 10,
+                        discretisedDE = F,
+                        p = 0.01)
+#greenGO$consolidated_result #90 terms: 
+
+gene_overlap(greenGO$consolidated_result$GO.ID, Pdom_SVM_GO$GO.ID, allGO) # significant
+gene_overlap(greenGO$consolidated_result$GO.ID, labourGO$consolidated_result$GO.ID, allGO) # very significant
+
+
+print(paste0("GO terms enriched among genes in module 'darkturquoise' at p<0.01: ", nrow(darkturquoiseGO$consolidated_result)))
+
+topdarkturquoiseGO = na.omit(darkturquoiseGO$consolidated_result[order(darkturquoiseGO$consolidated_result$result, decreasing = T)[1:20],])
+#capitalize and then add newline characters between words ever 30 characters
+topdarkturquoiseGO$Term = paste0(toupper(str_sub(topdarkturquoiseGO$Term,1,1)),str_sub(topdarkturquoiseGO$Term,2,))
+topdarkturquoiseGO$Term = gsub("(.{32,}?)\\s", "\\1\n", topdarkturquoiseGO$Term)
+#convert to log10 scale
+topdarkturquoiseGO$result = abs(log10(as.numeric(topdarkturquoiseGO$result)))
+#plot
+GOplot_darkturquoise = ggplot(topdarkturquoiseGO, aes(y = reorder(Term, result*(-1)), x = result, fill = Ontology)) +
+  geom_bar(stat = "identity", 
+           colour = "black", 
+           size = 1,
+           width = 0.8) +
+  # scale_x_continuous(expand = c(0,0,0.1,0),
+  #                    breaks = seq(0,5,by=1)) +
+  xlab(label = "-log10 p-value") +
+  ylab(label = "GO term") +
+  #scale_fill_manual(values = wes_palette(name= "FantasticFox1",n=5)[2:4]) +
+  scale_fill_manual(values = brewer.pal(3,"Blues")) +
+  ggtitle("Top 20 highly-enriched GO terms (p<0.01)") +
+  theme_bw() +
+  theme(panel.grid = element_line(color = "grey95"),
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        legend.title = element_text(face = "bold"),
+        axis.text.x = element_text(size = 11),
+        axis.text.y = element_text(size = 9),
+        axis.title = element_text(face = "bold", size =12))
+
+GOplot_darkturquoise
+
+#repeat for green
+print(paste0("GO terms enriched among genes in module 'green' at p<0.01: ", nrow(greenGO$consolidated_result)))
+
+topgreenGO = na.omit(greenGO$consolidated_result[order(greenGO$consolidated_result$result, decreasing = T)[1:20],])
+#capitalize and then add newline characters between words ever 30 characters
+topgreenGO$Term = paste0(toupper(str_sub(topgreenGO$Term,1,1)),str_sub(topgreenGO$Term,2,))
+topgreenGO$Term = gsub("(.{32,}?)\\s", "\\1\n", topgreenGO$Term)
+#convert to log10 scale
+topgreenGO$result = abs(log10(as.numeric(topgreenGO$result)))
+#plot
+GOplot_green = ggplot(topgreenGO, aes(y = reorder(Term, result*(-1)), x = result, fill = Ontology)) +
+  geom_bar(stat = "identity", 
+           colour = "black", 
+           size = 1,
+           width = 0.8) +
+  # scale_x_continuous(expand = c(0,0,0.1,0),
+  #                    breaks = seq(0,5,by=1)) +
+  xlab(label = "-log10 p-value") +
+  ylab(label = "GO term") +
+  #scale_fill_manual(values = wes_palette(name= "FantasticFox1",n=5)[2:4]) +
+  scale_fill_manual(values = brewer.pal(3,"Blues")) +
+  ggtitle("Top 20 highly-enriched GO terms (p<0.01)") +
+  theme_bw() +
+  theme(panel.grid = element_line(color = "grey95"),
+        plot.title = element_text(hjust = 0.5, face = "bold"),
+        legend.title = element_text(face = "bold"),
+        axis.text.x = element_text(size = 11),
+        axis.text.y = element_text(size = 9),
+        axis.title = element_text(face = "bold", size =12))
+
+GOplot_green
+```
+
+The 'toolkit-y' GO terms that are associated with module green are somewhat reminiscent of the GO terms that are associated with the SVM genes in our P dominula data. Sure enough, there is a significant overlap between the terms associated with Green and the terms associated with the SVM genes. By contrast, there is no overlap between the SVM terms and the DarkTurquoise terms. This result also holds for the comparison between these modules and the terms that were associated with reproduction vs foraging in experiment 1.
+
+```{r exp2-WGCNA-GO_overlap}
+print("overlap between Green GO terms and Pdom SVM GO terms:")
+gene_overlap(greenGO$consolidated_result$GO.ID, Pdom_SVM_GO$GO.ID, allGO) # significant
+print("overlap between Green GO terms and Experiment 1 reproductive vs forager GO terms:")
+gene_overlap(greenGO$consolidated_result$GO.ID, labourGO$consolidated_result$GO.ID, allGO) # very significant
+
+print("overlap between DarkTurquoise GO terms and Pdom SVM GO terms:")
+gene_overlap(darkturquoiseGO$consolidated_result$GO.ID, Pdom_SVM_GO$GO.ID, allGO) #not significant
+print("overlap between DarkTurquoise GO terms and Experiment 1 reproductive vs forager GO terms:")
+gene_overlap(darkturquoiseGO$consolidated_result$GO.ID, labourGO$consolidated_result$GO.ID, allGO) #not significant
+
+```
+What if we divide GO terms by their directionality? Sure enough, Green GO terms overlap significantly with GO terms that are upregulated in Pdom queens and experiment 1 reproductives, but not with GO terms that downregulated in those comparisons. 
+
+```{r}
+print("overlap between Green GO terms and upregulated Experiment 1 reproductive vs forager GO terms:")
+gene_overlap(greenGO$consolidated_result$GO.ID, labourGO_up$consolidated_result$GO.ID, allGO) # not significant
+print("overlap between Green GO terms and downregulated Experiment 1 reproductive vs forager GO terms:")
+gene_overlap(greenGO$consolidated_result$GO.ID, labourGO_down$consolidated_result$GO.ID, allGO) # not significant
+
+print("overlap between Green GO terms and upregulated SVM GO terms:")
+gene_overlap(greenGO$consolidated_result$GO.ID, Pdom_SVM_GOup$GO.ID, allGO) # significant
+print("overlap between Green GO terms and downregulated SVM GO terms:")
+gene_overlap(greenGO$consolidated_result$GO.ID, Pdom_SVM_GOdown$GO.ID, allGO) # not significant
+```
+
+
+From these results, we might conclude that DarkTurquoise is a module that represents the 'boring' parts of foraging (catching and killing prey), while Green is a module that reflects the 'interesting' part of foraging (investment into indirect rather than direct fitness gains). This is a really nice story that works out well but for one thing, namely that the correlation of the modules with foraging rate is the reverse of what we'd expect. DarkTurquoise is *negatively* correlated with foraging rate, while Green is *positively* associated with foraging rate, which doesn't seem to make sense given our GO results! I am currently investigating this to try to work out what's going on. 
