@@ -460,6 +460,10 @@ Given that there's a significant overlap in GO terms, might there also be an ove
 ```{r exp1-pdom-gene-overlap}
 LF_PDom_BLAST = read.csv("/home/benjamin/Documents/LF_2020_repo/Genomic/LF_Pdom_BLAST_orthologues.csv")
 Pdom_caste_DEGs = read.csv("/home/benjamin/Documents/LF_2020_repo/Data_Pdom/DESeq2_ctrl_vs_queen_noLFCT.csv", row.names = 1)
+# all DEGs
+genes_Pdom_caste = Pdom_caste_DEGs %>% subset(padj<0.05) %>% row.names()
+# convert to LF IDs
+genes_Pdom_caste_LF = LF_PDom_BLAST$Liostenogaster_flavolineata[LF_PDom_BLAST$Polistes_dominula %in% genes_Pdom_caste]
 # upregulated genes (in queens- note that the reference level for this comparison is queen, so the inequality operators are reversed)
 genes_up_Pdom_caste = Pdom_caste_DEGs %>% subset(padj<0.05 & log2FoldChange < 0) %>% row.names()
 # convert to LF IDs
@@ -468,6 +472,13 @@ genes_up_Pdom_caste_LF = LF_PDom_BLAST$Liostenogaster_flavolineata[LF_PDom_BLAST
 genes_down_Pdom_caste = Pdom_caste_DEGs %>% subset(padj<0.05 & log2FoldChange > 0) %>% row.names()
 # convert to LF labels
 genes_down_Pdom_caste_LF = LF_PDom_BLAST$Liostenogaster_flavolineata[LF_PDom_BLAST$Polistes_dominula %in% genes_down_Pdom_caste]
+
+geneOverlap = gene_overlap(genes_Pdom_caste_LF, labourDEGs, exp1.gene.counts.clean)
+geneOverlap_up = gene_overlap(genes_up_Pdom_caste_LF, labourDEGs_up, exp1.gene.counts.clean)
+print(paste0("Hypergeometric overlap between genes upregulated in reproductives in L flavolineata and in P dominula: Jaccard index = ",round(geneOverlap_up$jaccard,digits = 3),", p = ",round(geneOverlap_up$hypergeom,digits = 3)))
+
+geneOverlap_down = gene_overlap(genes_down_Pdom_caste_LF, labourDEGs_down, exp1.gene.counts.clean)
+print(paste0("Hypergeometric overlap between genes downregulated in reproductives in L flavolineata and in P dominula: Jaccard index = ",round(geneOverlap_down$jaccard,digits = 3),", p = ",round(geneOverlap_down$hypergeom,digits = 3)))
 ```
 
 
