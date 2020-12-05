@@ -455,7 +455,20 @@ print(paste0("GO terms enriched among SVM genes upregulated in Polistes dominula
 print(paste0("GO terms enriched among genes upregulated in L flavolineata foragers (p<0.01): ", nrow(labourGO_down$consolidated_result)))
 print(paste0("Hypergeometric verlap between these two groups: Jaccard index = ",round(GOverlap_down$jaccard,digits = 3),", p = ",round(GOverlap_down$hypergeom,digits = 3)))
 ```
-##COMPARE ACTUAL GENES HERE
+Given that there's a significant overlap in GO terms, might there also be an overlap in terms of (orthologous) genes?
+
+```{r exp1-pdom-gene-overlap}
+LF_PDom_BLAST = read.csv("/home/benjamin/Documents/LF_2020_repo/Genomic/LF_Pdom_BLAST_orthologues.csv")
+Pdom_caste_DEGs = read.csv("/home/benjamin/Documents/LF_2020_repo/Data_Pdom/DESeq2_ctrl_vs_queen_noLFCT.csv", row.names = 1)
+# upregulated genes (in queens- note that the reference level for this comparison is queen, so the inequality operators are reversed)
+genes_up_Pdom_caste = Pdom_caste_DEGs %>% subset(padj<0.05 & log2FoldChange < 0) %>% row.names()
+# convert to LF IDs
+genes_up_Pdom_caste_LF = LF_PDom_BLAST$Liostenogaster_flavolineata[LF_PDom_BLAST$Polistes_dominula %in% genes_up_Pdom_caste]
+# downregulated genes 
+genes_down_Pdom_caste = Pdom_caste_DEGs %>% subset(padj<0.05 & log2FoldChange > 0) %>% row.names()
+# convert to LF labels
+genes_down_Pdom_caste_LF = LF_PDom_BLAST$Liostenogaster_flavolineata[LF_PDom_BLAST$Polistes_dominula %in% genes_down_Pdom_caste]
+```
 
 
 
