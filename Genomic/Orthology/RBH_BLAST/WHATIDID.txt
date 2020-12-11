@@ -1,0 +1,42 @@
+###################
+# reciprocal best hit BLAST for L. flavolineata vs P. dominula
+#BLAST LF against Pdom
+qsub BLAST_LF_vs_Pdom.sh
+
+# take only the best BLAST hit for each LF entry
+# first part: sort by column 1 (LF ID), then by column 12 (bit score, higher=better), then by column 11 (E-value, lower=better)
+# second part: take the first entry for each value in column
+# trailing g: numeric sort ; trailing r: reverse sort
+# third part: reduce down to first two columns
+sort -k1,1 -k12,12gr -k11,11g LF_to_Pdom | sort -u -k1,1 --merge | awk '{print $1,$2}' > LF_to_Pdom_best
+
+#BLAST Pdom against LF
+qsub BLAST_Pdom_vs_LF.sh
+
+# take only the best BLAST hit for each Pdom entry
+sort -k1,1 -k12,12gr -k11,11g Pdom_to_LF | sort -u -k1,1 --merge > Pdom_to_LF_best
+# take first two columns and reverse their positions, then re-sort
+awk '{print $2,$1}' Pdom_to_LF_best | sort k1,1 > Pdom_to_LF_best_rev
+
+# get all lines that are common between the two comparisons: these are the reciprocal best BLAST hits
+comm -12 LF_to_Pdom_best Pdom_to_LF_best_rev > Pdom_LF_RBH.txt
+
+###################
+# reciprocal best hit BLAST for L. flavolineata vs D. melanogaster
+
+#BLAST LF against Dmel
+qsub BLAST_LF_vs_Dmel.sh
+
+# take only the best BLAST hit for each LF entry
+sort -k1,1 -k12,12gr -k11,11g LF_to_Dmel | sort -u -k1,1 --merge | awk '{print $1,$2}' > LF_to_Dmel_best
+
+#BLAST Dmel against LF
+qsub BLAST_Dmel_vs_LF.sh
+
+# take only the best BLAST hit for each Dmel entry
+sort -k1,1 -k12,12gr -k11,11g Dmel_to_LF | sort -u -k1,1 --merge > Dmel_to_LF_best
+# take first two columns and reverse their positions, then re-sort
+awk '{print $2,$1}' Dmel_to_LF_best | sort -k1,1 > Dmel_to_LF_best_rev
+
+# get all lines that are common between the two comparisons: these are the reciprocal best BLAST hits
+comm -12 LF_to_Dmel_best Dmel_to_LF_best_rev > Dmel_LF_RBH.txt

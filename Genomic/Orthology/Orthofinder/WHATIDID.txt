@@ -1,0 +1,28 @@
+```bash
+mkdir species_fastas
+cd species_fastas
+
+# get Drosophila melanogaster genome, unzip and rename
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/000/001/215/GCF_000001215.4_Release_6_plus_ISO1_MT/GCF_000001215.4_Release_6_plus_ISO1_MT_protein.faa.gz
+gunzip GCF_000001215.4_Release_6_plus_ISO1_MT_protein.faa.gz
+mv GCF_000001215.4_Release_6_plus_ISO1_MT_protein.faa Drosophila_melanogaster.faa
+
+# get Apis mellifera genome, unzip and rename
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/003/254/395/GCF_003254395.2_Amel_HAv3.1/GCF_003254395.2_Amel_HAv3.1_protein.faa.gz
+gunzip GCF_003254395.2_Amel_HAv3.1_protein.faa.gz
+mv GCF_003254395.2_Amel_HAv3.1_protein.faa Apis mellifera.faa
+
+# get Vespula vulgaris genome, unzip and rename
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/014/466/185/GCA_014466185.1_ASM1446618v1/GCA_014466185.1_ASM1446618v1_protein.faa.gz
+gunzip GCA_014466185.1_ASM1446618v1_protein.faa.gz
+mv GCA_014466185.1_ASM1446618v1_protein.faa Vespula_vulgaris.faa
+
+# get Nasonia vitripennis genome, unzip and rename
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCF/009/193/385/GCF_009193385.2_Nvit_psr_1.1/GCF_009193385.2_Nvit_psr_1.1_protein.faa.gz
+gunzip GCF_009193385.2_Nvit_psr_1.1_protein.faa.gz
+mv GCF_009193385.2_Nvit_psr_1.1_protein.faa Nasonia_vitripennis.faa
+
+#run orthofinder
+qsub orthofinder.sh
+```
+
