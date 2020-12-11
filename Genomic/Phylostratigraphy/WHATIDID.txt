@@ -1,0 +1,19 @@
+## begin by downloading protein fastas for all phylostrata, as well as yeast and humans
+qsub download_prots.sh
+
+## now generate BLAST databases
+#request interactive session
+qrsh -pe mpi 1 -l mem=512M,h_rt=1:00:00 -now no
+
+#move to faa directory
+cd /home/ucfaata/scratch/lf_2020/phylostratigraphy/uniprot-seqs
+
+#add LF protein FASTA
+cp ../../genome/Liostenogaster_flavolineata.faa 85445.faa
+
+#load BLAST+
+module load blast+/2.2.30/intel-2015-update2
+
+#generate BLAST databases
+for faa in *.faa; do makeblastdb -in $faa -dbtype prot -parse_seqids -out ${faa%.*}; done
+
