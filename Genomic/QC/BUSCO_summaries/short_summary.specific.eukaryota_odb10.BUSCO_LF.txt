@@ -1,0 +1,14 @@
+# BUSCO version is: 4.1.4 
+# The lineage dataset is: eukaryota_odb10 (Creation date: 2020-09-10, number of species: 70, number of BUSCOs: 255)
+# Summarized benchmarking in BUSCO notation for file /home/btaylor/data/Liostenogaster_flavolineata.faa
+# BUSCO was run in mode: proteins
+
+	***** Results: *****
+
+	C:95.7%[S:84.3%,D:11.4%],F:0.8%,M:3.5%,n:255	   
+	244	Complete BUSCOs (C)			   
+	215	Complete and single-copy BUSCOs (S)	   
+	29	Complete and duplicated BUSCOs (D)	   
+	2	Fragmented BUSCOs (F)			   
+	9	Missing BUSCOs (M)			   
+	255	Total BUSCO groups searched		   

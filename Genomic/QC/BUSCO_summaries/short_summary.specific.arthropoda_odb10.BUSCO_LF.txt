@@ -1,0 +1,14 @@
+# BUSCO version is: 4.1.4 
+# The lineage dataset is: arthropoda_odb10 (Creation date: 2020-09-10, number of species: 90, number of BUSCOs: 1013)
+# Summarized benchmarking in BUSCO notation for file /home/btaylor/data/Liostenogaster_flavolineata.faa
+# BUSCO was run in mode: proteins
+
+	***** Results: *****
+
+	C:93.8%[S:81.0%,D:12.8%],F:1.7%,M:4.5%,n:1013	   
+	951	Complete BUSCOs (C)			   
+	821	Complete and single-copy BUSCOs (S)	   
+	130	Complete and duplicated BUSCOs (D)	   
+	17	Fragmented BUSCOs (F)			   
+	45	Missing BUSCOs (M)			   
+	1013	Total BUSCO groups searched		   

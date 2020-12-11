@@ -1,0 +1,14 @@
+# BUSCO version is: 4.1.4 
+# The lineage dataset is: hymenoptera_odb10 (Creation date: 2020-08-05, number of species: 40, number of BUSCOs: 5991)
+# Summarized benchmarking in BUSCO notation for file /home/btaylor/data/Liostenogaster_flavolineata.faa
+# BUSCO was run in mode: proteins
+
+	***** Results: *****
+
+	C:88.8%[S:75.6%,D:13.2%],F:3.7%,M:7.5%,n:5991	   
+	5321	Complete BUSCOs (C)			   
+	4531	Complete and single-copy BUSCOs (S)	   
+	790	Complete and duplicated BUSCOs (D)	   
+	219	Fragmented BUSCOs (F)			   
+	451	Missing BUSCOs (M)			   
+	5991	Total BUSCO groups searched		   
