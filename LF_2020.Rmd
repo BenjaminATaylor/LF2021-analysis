@@ -389,7 +389,11 @@ dds.cohort.labour = DESeqDataSetFromMatrix(countData = exp1.gene.counts.clean,
                                     design = as.formula("~LabourType"))
 dds.cohort.degs.labour = DESeq(dds.cohort.labour)
 print(paste0("Genes differentially expressed between egglaying and foraging individuals at lfc=0: ", sum(results(dds.cohort.degs.labour)$padj<0.05, na.rm = T)))
-#also combine both into additive model
+
+#also combine both into an additive model
+exp1.phenodata.clean.test = mutate(exp1.phenodata.clean, 
+                                   social = substring(Treatment,1,3)=="Soc",
+                                   reproductive = substring(Treatment,4,6)=="Rep")
 cohort.additive = DESeq_wrap(data = exp1.phenodata.clean.test,
                              genes = exp1.gene.counts.clean,
                              formula = "~ social + reproductive",
@@ -509,6 +513,8 @@ GOverlap_up = gene_overlap(Pdom_SVM_GOup$GO.ID, labourGO_up$consolidated_result$
 print(paste0("GO terms enriched among SVM genes upregulated in Polistes dominula queens (p<0.05): ", nrow(Pdom_SVM_GOup)))
 print(paste0("GO terms enriched among genes upregulated in L flavolineata reproductives (p<0.01): ", nrow(labourGO_up$consolidated_result)))
 print(paste0("Hypergeometric verlap between these two groups: Jaccard index = ",round(GOverlap_up$jaccard,digits = 3),", p = ",round(GOverlap_up$hypergeom,digits = 3)))
+
+#labourGO_up$consolidated_result[order(labourGO_up$consolidated_result$result),]
 
 #NB: because the baseline for the LF comparison was reproductives, genes that have LFC<0 here are upregulated *in queens*, which is why this looks backwards
 labourDEGs_down = cohort.additive$reproductiveTRUE %>% subset(padj<0.05 & log2FoldChange>0) %>% row.names()
