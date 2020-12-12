@@ -134,7 +134,7 @@ Three treatments, assigned at random:
 
 * Social Reproductive (SocRep, n = 9): The original egg-layer was removed from the nest to allow the focal wasp to become the dominant reproductive on nests of between 2-3 individuals. Following initial manipulation, any newly emerged wasps were removed to ensure nest size remained the same throughout the experiment and egg-laying was confirmed through brood counts.
 
-* Solitary Forager (SolFor, n = 6) & Solitary Reproductive (SolRep, n = 8): To generate solitary phenotypes, all individuals on the nest, except the focal were removed at day 10. Census’ of foraging efforts initially identified individuals which foraged the most, then on day 28, individuals were collected either returning to the nest with forage (SolF) or laying an egg (SolR).
+* Solitary Forager (SolFor, n = 6) & Solitary Reproductive (SolRep, n = 8): To generate solitary phenotypes, all individuals on the nest except the focal were removed at day 10. Censuses of foraging efforts initially identified individuals which foraged the most, then on day 28, individuals were collected either returning to the nest with forage (SolF) or laying an egg (SolR).
 
 For all manipulations, focal wasps were left on manipulated nests from days 10-28 and census’s were performed every 2 hours during peak foraging times, to determine foraging effort. When each focal individual was 28 days old (18 days after manipulation), they were collected directly from the nest and placed immediately into RNA later.
 
@@ -142,7 +142,7 @@ For all manipulations, focal wasps were left on manipulated nests from days 10-2
 
 Looking at the phenotypic data, we can see an immediate problem. Solitary reproductives and solitary foragers nominally shouldn't differ in their foraging rates, yet they clearly do, which makes me question whether the experimental design was exactly as described above. Could it be that Daisy intentionally identified individuals that differed in their foraging rates even while solitary? On the other hand, there is no difference between the two solitary treatments in terms of number of developed eggs, so that's good.
 ```{r exp1-plot-foraging-rate-and-eggs-by-treatment}
-gg_exp1_TimeOnNest = ggplot(exp1.phenodata.clean, aes(x = Treatment, y = TimeOnNest, label = WaspID)) + 
+gg_exp1_TimeOnNest = ggplot(exp1.phenodata.clean, aes(x = Treatment, y = (100-TimeOnNest), label = WaspID)) + 
     geom_boxplot() +
     #geom_text() +
     geom_point()
@@ -152,8 +152,26 @@ gg_exp1_DevelopedEggs = ggplot(exp1.phenodata.clean, aes(x = Treatment, y = Deve
     #geom_text() +
     geom_point()
 
-
 plot(ggarrange(gg_exp1_TimeOnNest, gg_exp1_DevelopedEggs))
+
+# get means and ranges
+exp1.phenodata.clean %>% 
+  group_by(Treatment) %>% 
+  summarize(EggsMean = mean(DevelopedEggs),
+            EggsSD = sd(DevelopedEggs),
+            TimeOnNestMean = mean(100-TimeOnNest),
+            TimeOnNestSD = sd(100-TimeOnNest))
+
+# test whether solitary individuals have different numbers of eggs and/or spend different amounts of time off nest compared to social reproductives
+exp1.phenodata.clean.nosubs = exp1.phenodata.clean %>%
+  subset(Treatment != "SocFor") %>%
+  mutate(social = Treatment=="SocRep")
+wilcox.test(exp1.phenodata.clean.nosubs$DevelopedEggs~exp1.phenodata.clean.nosubs$social,alternative = "two.sided")
+wilcox.test(exp1.phenodata.clean.nosubs$TimeOnNest~exp1.phenodata.clean.nosubs$social,alternative = "two.sided")
+
+# test whether solitary foragers forage more than solitary reproductives
+wilcox.test(subset(exp1.phenodata.clean.nosubs, Treatment!="SocRep")$TimeOnNest~subset(exp1.phenodata.clean.nosubs, Treatment!="SocRep")$Treatment,alternative = "two.sided")
+
 ```
 
 Among individuals from social nests, there isn't a clear relationship between foraging rate and nest size, nor between foraging rate and rank among individuals that were not rank 1 (although this is hard to assess as only two rank 3 individuals were sequenced):
@@ -260,6 +278,14 @@ DEGplot_lfc0 = ggplot(data = DEGs_plot, aes(x=Var1, y=Var2, fill=value)) +
         axis.text.y = element_text(size = 12),
         axis.title = element_blank()) +
   coord_fixed()
+
+#collect genes that were differentially expressed in any comparison
+for(i in 1:length(gene.comparisons)){
+  if(i==1){diffgenes = c()}
+  foo = get(gene.comparisons[i])
+  diffgenes = c(diffgenes,row.names(subset(foo, padj<0.05)))
+}
+
 
 #repeat but using an LFC threshold 
 #create empty matrix to be populated with between-group comparisons
@@ -455,7 +481,7 @@ print(paste0("GO terms enriched among SVM genes upregulated in Polistes dominula
 print(paste0("GO terms enriched among genes upregulated in L flavolineata foragers (p<0.01): ", nrow(labourGO_down$consolidated_result)))
 print(paste0("Hypergeometric verlap between these two groups: Jaccard index = ",round(GOverlap_down$jaccard,digits = 3),", p = ",round(GOverlap_down$hypergeom,digits = 3)))
 ```
-Given that there's a significant overlap in GO terms, might there also be an overlap in terms of (orthologous) genes?
+Given that there's a significant overlap in GO terms, might there also be an overlap in terms of (orthologous) genes? Yes, a highly significant one!
 
 ```{r exp1-pdom-gene-overlap}
 LF_PDom_BLAST = read.csv("/home/benjamin/Documents/LF_2020_repo/Genomic/LF_Pdom_BLAST_orthologues.csv")
