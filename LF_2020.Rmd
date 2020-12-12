@@ -70,7 +70,7 @@ exp1.gene.counts = exp1.gene.counts[, colnames(exp1.gene.counts) %in% exp1.pheno
 
 #exclude outlier samples
 exclude = c("SolF5", # Phenotypic outlier
-            "Sol34","SocF14") # Gene expression outliers
+            "SocF10","SocF14","SocF5") # Gene expression outliers
 
 exp1.phenodata.clean = subset(exp1.phenodata, !(WaspID %in% exclude))
 
@@ -223,11 +223,50 @@ ggplot(ggpcadata, aes(x = PC1, y = PC2, color = Treatment, label = WaspID)) +
         axis.title = element_text(face = "bold", size =12))
 
 ```
+Repeating the PCA but using just the top 100 most highly-variable genes, we see much greater structure. with social foragers clustering closely:
 
+```{r exp1-PCA}
+# log-transform with a pseudocount
+pca.counts = log2(exp1.gene.counts.clean[order(rowVars(exp1.gene.counts.clean),decreasing = T)[1:100],]+1)
+# pca.counts = exp1.gene.counts.clean[order(rowVars(exp1.gene.counts.clean),decreasing = T)[1:100],]
+
+#create pca object
+data.pca = prcomp(t(pca.counts))
+#extract PC data
+percent.var = (data.pca$sdev^2 / sum(data.pca$sdev^2))
+pca.out = list(values = data.frame(data.pca$x),
+               percent.var = percent.var)
+#connect to phenotypic data
+ggpcadata = pca.out$values %>% 
+  rownames_to_column(var = "WaspID") %>%
+  left_join(exp1.phenodata.clean,
+            by = "WaspID")
+#plot
+ggplot(ggpcadata, aes(x = PC1, y = PC2, color = Treatment, label = WaspID)) +
+  geom_point(size = 5, position = position_jitter(width = 0.5,height=0.5)) +
+  geom_text(vjust = -1) +
+  xlab(paste0("PC",1,": ",signif(pca.out$percent.var[1]*100, 3),"%")) +
+  ylab(paste0("PC",2,": ",signif(pca.out$percent.var[2]*100, 3),"%")) +
+  theme_bw() +
+  # scale_color_manual(name = "Treatment",
+  #                    values = brewer.pal(7, "Paired")) +
+  scale_shape_manual(name = "Treatment",
+                     values = c(8,15:20)) +
+  theme(panel.grid = element_line(color = "grey95"),
+        legend.title = element_text(face = "bold"),
+        axis.text.x = element_text(size = 11),
+        axis.text.y = element_text(size = 11),
+        axis.title = element_text(face = "bold", size =12))
+
+```
 
 Now we perform pairwise comparisons between each different treatment group. Doing so, we find that social foragers show significant differential expression with social reproductives and even more so with solitary reproductives. Apart from this, we find no meaningful signals of differential expression. This is particularly interesting in the case of solitary foragers- these individuals don't show differential expression with reproductives, but nor do they do so with social foragers. That's confusing! 
 
 ```{r exp1-treatment-pairwise-DESeq2}
+#exclude unusual sample
+exp1.gene.counts.clean = exp1.gene.counts.clean[,-which(colnames(exp1.gene.counts.clean)=="SolF7")]
+exp1.phenodata.clean = exp1.phenodata.clean[exp1.phenodata.clean$WaspID %in% colnames(exp1.gene.counts.clean),]
+
 # perform analysis 
 dds.gene = DESeqDataSetFromMatrix(countData = exp1.gene.counts.clean,
                                   colData = exp1.phenodata.clean,
@@ -350,11 +389,18 @@ dds.cohort.labour = DESeqDataSetFromMatrix(countData = exp1.gene.counts.clean,
                                     design = as.formula("~LabourType"))
 dds.cohort.degs.labour = DESeq(dds.cohort.labour)
 print(paste0("Genes differentially expressed between egglaying and foraging individuals at lfc=0: ", sum(results(dds.cohort.degs.labour)$padj<0.05, na.rm = T)))
+#also combine both into additive model
+cohort.additive = DESeq_wrap(data = exp1.phenodata.clean.test,
+                             genes = exp1.gene.counts.clean,
+                             formula = "~ social + reproductive",
+                             detail = T)
+
 ```
+
 Which GO terms are associated with the set of genes that are differentially expressed between foragers and egglayers? A large number of GO terms are associated with this comparison, of which the most highly-enriched seem to be associated with respiration/energetic processes:
 
 ```{r exp1-cohort-topGO}
-labourDEGs = results(dds.cohort.degs.labour) %>% subset(padj<0.05) %>% row.names()
+labourDEGs = cohort.additive$reproductiveTRUE %>% subset(padj<0.05) %>% row.names()
 GOscores.labour = as.numeric(row.names(exp1.gene.counts.clean) %in% labourDEGs) %>% 'names<-'(row.names(exp1.gene.counts.clean))
 
 labourGO = topGO_wrapper(geneScores = GOscores.labour,
@@ -448,7 +494,7 @@ Pdom_SVM_GOup = read.csv("/home/benjamin/Documents/LF_2020_repo/Data_Pdom/SVM_GO
 Pdom_SVM_GOdown = read.csv("/home/benjamin/Documents/LF_2020_repo/Data_Pdom/SVM_GOdown_0.05.csv")
 
 #NB: because the baseline for the LF comparison was reproductives, genes that have LFC<0 here are upregulated *in queens*, which is why this looks backwards
-labourDEGs_up = results(dds.cohort.degs.labour) %>% subset(padj<0.05 & log2FoldChange<0) %>% row.names()
+labourDEGs_up = cohort.additive$reproductiveTRUE %>% subset(padj<0.05 & log2FoldChange<0) %>% row.names()
 GOscores.labour_up = as.numeric(row.names(exp1.gene.counts.clean) %in% labourDEGs_up) %>% 'names<-'(row.names(exp1.gene.counts.clean))
 labourGO_up = topGO_wrapper(geneScores = GOscores.labour_up,
                          geneScoresDE = F,
@@ -465,7 +511,7 @@ print(paste0("GO terms enriched among genes upregulated in L flavolineata reprod
 print(paste0("Hypergeometric verlap between these two groups: Jaccard index = ",round(GOverlap_up$jaccard,digits = 3),", p = ",round(GOverlap_up$hypergeom,digits = 3)))
 
 #NB: because the baseline for the LF comparison was reproductives, genes that have LFC<0 here are upregulated *in queens*, which is why this looks backwards
-labourDEGs_down = results(dds.cohort.degs.labour) %>% subset(padj<0.05 & log2FoldChange>0) %>% row.names()
+labourDEGs_down = cohort.additive$reproductiveTRUE %>% subset(padj<0.05 & log2FoldChange>0) %>% row.names()
 GOscores.labour_down = as.numeric(row.names(exp1.gene.counts.clean) %in% labourDEGs_down) %>% 'names<-'(row.names(exp1.gene.counts.clean))
 labourGO_down = topGO_wrapper(geneScores = GOscores.labour_down,
                          geneScoresDE = F,
