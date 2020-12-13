@@ -1215,6 +1215,8 @@ offNestDEGs_forGO = DESeq_wrap(data = exp2.phenodata.clean.no1,
 offNestDEGs_forGO$OffNestFinal %>% subset(padj<0.05 & log2FoldChange>0) %>% nrow()
 
 
+offNestDEGs_forGO$OffNestFinal %>% subset(padj<0.05 & log2FoldChange>0)
+
 foragingGO_up =  topGO_wrapper(geneScores = offNestDEGs_forGO$OffNestFinal,
                             geneScoresDE = T,
                             geneScoresDirection = "Up",
@@ -1373,7 +1375,7 @@ traitdata = exp2.phenodata.clean.no1
 traitdata$NewRank = as.numeric(substr(traitdata$Treatment,2,2))
 # allTraits = dplyr::select(traitdata, c("WaspID","Rank","NestSize","OffNestAfter","Ovaries","NoEggs","Inseminated","Control","Treatment")) %>%
 #   mutate_at(c("Rank","NestSize","OffNestAfter","NoEggs"), as.numeric)
-allTraits = dplyr::select(traitdata, c("WaspID","OffNestFinal","Rank","Age"))
+allTraits = dplyr::select(traitdata, c("WaspID","OffNestFinal","Rank","FinalRank","Age"))
 
 # Form a data frame analogous to expression data that will hold the clinical traits.
 samples = rownames(datExpr);
@@ -1473,7 +1475,7 @@ mergedColors = merge$colors;
 # Eigengenes of the new merged modules:
 mergedMEs = merge$newMEs;
 # now we have 20 modules
-# table(mergedColors)
+table(mergedColors)
 
 # sizeGrWindow(12, 9)
 # # # #pdf(file = "Plots/geneDendro-3.pdf", wi = 9, he = 6)
@@ -1663,6 +1665,12 @@ GOplot_darkturquoise = ggplot(topdarkturquoiseGO, aes(y = reorder(Term, result*(
 
 GOplot_darkturquoise
 
+# wait, are these genes exactly the same as the 83 that are negatively associated with foraging rate via DESeq2? 
+forageDownGenes = offNestDEGs_forGO$OffNestFinal %>% subset(padj<0.05 & log2FoldChange<0) %>% row.names()
+intersect(names(which(GOscores.darkturquoise==1)),forageDownGenes)
+intersect(darkturquoiseGO$consolidated_result$Term, foragingGO_down$consolidated_result$Term)
+#no, it's a coincidence
+
 #repeat for green
 print(paste0("GO terms enriched among genes in module 'green' at p<0.01: ", nrow(greenGO$consolidated_result)))
 
@@ -1694,6 +1702,10 @@ GOplot_green = ggplot(topgreenGO, aes(y = reorder(Term, result*(-1)), x = result
         axis.title = element_text(face = "bold", size =12))
 
 GOplot_green
+
+# which of these terms overlap with foraging up GO?
+forageUpGenes = offNestDEGs_forGO$OffNestFinal %>% subset(padj<0.05 & log2FoldChange>0) %>% row.names()
+intersect(greenGO$consolidated_result$Term, foragingGO_up$consolidated_result$Term)
 ```
 
 The 'toolkit-y' GO terms that are associated with module green are somewhat reminiscent of the GO terms that are associated with the SVM genes in our P dominula data. Sure enough, there is a significant overlap between the terms associated with Green and the terms associated with the SVM genes. By contrast, there is no overlap between the SVM terms and the DarkTurquoise terms. This result also holds for the comparison between these modules and the terms that were associated with reproduction vs foraging in experiment 1.
