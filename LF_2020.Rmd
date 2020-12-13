@@ -225,7 +225,7 @@ ggplot(ggpcadata, aes(x = PC1, y = PC2, color = Treatment, label = WaspID)) +
 ```
 Repeating the PCA but using just the top 100 most highly-variable genes, we see much greater structure. with social foragers clustering closely:
 
-```{r exp1-PCA}
+```{r exp1-PCA-highvariance}
 # log-transform with a pseudocount
 pca.counts = log2(exp1.gene.counts.clean[order(rowVars(exp1.gene.counts.clean),decreasing = T)[1:100],]+1)
 # pca.counts = exp1.gene.counts.clean[order(rowVars(exp1.gene.counts.clean),decreasing = T)[1:100],]
@@ -615,7 +615,7 @@ We also expect that individuals will exhibit higher mean foraging rates on small
 ggplot(exp2.phenodata.clean, aes(x = as.factor(NestSize), y = OffNestBefore, color = Rank)) +
   #geom_boxplot() +
   geom_point() +
-  xlab("Original Rank") +
+  xlab("Nest size") +
   ylab("Time off nest before manipulation") +
   theme_bw() +
   theme(plot.title = element_text(hjust = 0.5))
@@ -645,6 +645,15 @@ ggplot(subset(exp2.phenodata.clean,Control==F), aes(x = Treatment, y = OffNestCh
   ggtitle("Change in time off nest following manipulation") +
   theme(plot.title = element_text(hjust = 0.5))
 
+#does time off nest shift for individuals that increase in rank?
+mean(na.omit(exp2.phenodata.clean$OffNestChange[which(exp2.phenodata.clean$RankChange==T)]))
+sd(na.omit(exp2.phenodata.clean$OffNestChange[which(exp2.phenodata.clean$RankChange==T)]))
+wilcox.test(na.omit(exp2.phenodata.clean$OffNestChange[which(exp2.phenodata.clean$RankChange==T)]), alternative = "two.sided")
+
+#does time off nest shift for individuals that don't increase in rank?
+mean(na.omit(exp2.phenodata.clean$OffNestChange[which(exp2.phenodata.clean$RankChange==F)]))
+sd(na.omit(exp2.phenodata.clean$OffNestChange[which(exp2.phenodata.clean$RankChange==F)]))
+wilcox.test(na.omit(exp2.phenodata.clean$OffNestChange[which(exp2.phenodata.clean$RankChange==F)]), alternative = "two.sided")
 ```
 
 Let's move on to ovarian data. These are fairly clear: rank 1individuals almost uniformly have well-developed ovaries with plenty of eggs, with all others having no ovarian development. A small number of size-manipulated rank 2 individuals are the exception, being somewhere intermediate in ovarian development. 
@@ -665,6 +674,12 @@ ggplot(subset(exp2.phenodata.clean, !(is.na(Ovaries))), aes(x = Treatment, y = O
   theme_bw() +
   ggtitle("Ovarian score") +
   theme(plot.title = element_text(hjust = 0.5))
+
+exp2.phenodata.clean %>% group_by(Rank) %>% 
+  summarize(EggsMean = mean(NoEggs),
+            EggsSD = sd(NoEggs))
+
+
 ```
 
 ## Gene expression results
@@ -674,6 +689,7 @@ Let's first get a general idea of the shape of the data by performing PCA on all
 ```{r exp2-pca-allgenes}
 # log-transform with a pseudocount
 pca.counts = log2(exp2.gene.counts.clean+1)
+#pca.counts = log2(exp2.gene.counts.clean[order(rowVars(exp2.gene.counts.clean),decreasing = T)[1:100],]+1)
 #create pca object
 data.pca = prcomp(t(pca.counts))
 #extract PC data
@@ -784,6 +800,230 @@ for(i in 1:nrow(contrasts)){
   
   comparison = results(dds.gene.deg, 
                        contrast=c("Treatment", 
+                                  contrasts[i,1], 
+                                  contrasts[i,2]),     
+                       alpha = 0.05,
+                       lfcThreshold = log2(1.5))
+  
+  #give comparison object a meaningful name for future reference and save that name in a list
+  assign(paste0(contrasts[i,1], ".",contrasts[i,2],".gene.comparison"), comparison)
+  gene.comparisons = append(paste0(contrasts[i,1], ".",contrasts[i,2],".gene.comparison"),gene.comparisons)
+  
+  DEGs[contrasts[i,1],contrasts[i,2]] = (sum(comparison$padj<0.05, na.rm = TRUE))
+  DEGs[contrasts[i,2],contrasts[i,1]] = DEGs[contrasts[i,1],contrasts[i,2]]
+  
+}
+
+# make a figure 
+DEGs[upper.tri(DEGs)] = NA
+
+DEGs_plot = reshape2::melt(DEGs, na.rm = TRUE)
+
+DEGplot_lfc1.5 = ggplot(data = DEGs_plot, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile(color = "black") +
+  geom_text(aes(label=value)) +
+  scale_fill_gradient(low = "cornsilk", high = "red", 
+                      limit = c(0,500), space = "Lab", 
+                      name="Number of differentially\nexpressed genes at\nlfc = log2(1.5)") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1,
+                                   size = 12, hjust = 1),
+        axis.text.y = element_text(size = 12),
+        axis.title = element_blank()) +
+  coord_fixed()
+
+plot(ggarrange(DEGplot_lfc0, DEGplot_lfc1.5, ncol = 1))
+```
+Repeat but with just final rank rather than treatment:
+
+```{r exp2-group-treatment-DEGs-finalrank}
+exp2.phenodata.clean.test = mutate(exp2.phenodata.clean, FinalRank = as.factor(FinalRank))
+
+# perform analysis 
+dds.gene = DESeqDataSetFromMatrix(countData = exp2.gene.counts.clean,
+                                  colData = exp2.phenodata.clean.test,
+                                  design = ~FinalRank)
+
+# Run the default analysis for DESeq2 and generate results table. NA p-values are generated by 0 counts and outliers calculated by Cook's distance.
+dds.gene.deg = DESeq(dds.gene, fitType = "local", betaPrior = FALSE)
+
+# Check for outliers: none are apparent
+# print("Check for gene expression outliers")
+# par(mar=c(8,5,2,2))
+# boxplot(log10(assays(dds.gene.deg)[["cooks"]]), range=0, las=2)
+
+#list all possible combinations of treatment groups
+groups = as.character(unique(dds.gene.deg$FinalRank))
+contrasts = t(combn(groups, 2))
+
+#create empty matrix to be populated with between-group comparisons
+DEGs = matrix(nrow = length(groups), 
+              ncol = length(groups), 
+              dimnames = list(groups,groups))
+
+gene.comparisons = c()
+
+#for each comparison, perform basic differential expression analysis 
+for(i in 1:nrow(contrasts)){
+  
+  comparison = results(dds.gene.deg, 
+                       contrast=c("FinalRank", 
+                                  contrasts[i,1], 
+                                  contrasts[i,2]),     
+                       alpha = 0.05,
+                       lfcThreshold = log2(1))
+  
+  #give comparison object a meaningful name for future reference and save that name in a list
+  assign(paste0(contrasts[i,1], ".",contrasts[i,2],".gene.comparison"), comparison)
+  gene.comparisons = append(paste0(contrasts[i,1], ".",contrasts[i,2],".gene.comparison"),gene.comparisons)
+  
+  DEGs[contrasts[i,1],contrasts[i,2]] = (sum(comparison$padj<0.05, na.rm = TRUE))
+  DEGs[contrasts[i,2],contrasts[i,1]] = DEGs[contrasts[i,1],contrasts[i,2]]
+  
+}
+
+# make a figure 
+DEGs[upper.tri(DEGs)] = NA
+
+DEGs_plot = reshape2::melt(DEGs, na.rm = TRUE)
+
+DEGplot_lfc0 = ggplot(data = DEGs_plot, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile(color = "black") +
+  geom_text(aes(label=value)) +
+  scale_fill_gradient(low = "cornsilk", high = "red", 
+                      limit = c(0,1000), space = "Lab", 
+                      name="Number of differentially\nexpressed genes at lfc = 0") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1,
+                                   size = 12, hjust = 1),
+        axis.text.y = element_text(size = 12),
+        axis.title = element_blank()) +
+  coord_fixed()
+
+#create empty matrix to be populated with between-group comparisons
+DEGs = matrix(nrow = length(groups), 
+              ncol = length(groups), 
+              dimnames = list(groups,groups))
+
+gene.comparisons = c()
+
+#for each comparison, perform basic differential expression analysis 
+for(i in 1:nrow(contrasts)){
+  
+  comparison = results(dds.gene.deg, 
+                       contrast=c("FinalRank", 
+                                  contrasts[i,1], 
+                                  contrasts[i,2]),     
+                       alpha = 0.05,
+                       lfcThreshold = log2(1.5))
+  
+  #give comparison object a meaningful name for future reference and save that name in a list
+  assign(paste0(contrasts[i,1], ".",contrasts[i,2],".gene.comparison"), comparison)
+  gene.comparisons = append(paste0(contrasts[i,1], ".",contrasts[i,2],".gene.comparison"),gene.comparisons)
+  
+  DEGs[contrasts[i,1],contrasts[i,2]] = (sum(comparison$padj<0.05, na.rm = TRUE))
+  DEGs[contrasts[i,2],contrasts[i,1]] = DEGs[contrasts[i,1],contrasts[i,2]]
+  
+}
+
+# make a figure 
+DEGs[upper.tri(DEGs)] = NA
+
+DEGs_plot = reshape2::melt(DEGs, na.rm = TRUE)
+
+DEGplot_lfc1.5 = ggplot(data = DEGs_plot, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile(color = "black") +
+  geom_text(aes(label=value)) +
+  scale_fill_gradient(low = "cornsilk", high = "red", 
+                      limit = c(0,500), space = "Lab", 
+                      name="Number of differentially\nexpressed genes at\nlfc = log2(1.5)") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1,
+                                   size = 12, hjust = 1),
+        axis.text.y = element_text(size = 12),
+        axis.title = element_blank()) +
+  coord_fixed()
+
+plot(ggarrange(DEGplot_lfc0, DEGplot_lfc1.5, ncol = 1))
+```
+Repeat but with original rank rather than final rank:
+
+```{r exp2-group-treatment-DEGs-finalrank}
+exp2.phenodata.clean.test = mutate(exp2.phenodata.clean, Rank = as.factor(Rank))
+
+# perform analysis 
+dds.gene = DESeqDataSetFromMatrix(countData = exp2.gene.counts.clean,
+                                  colData = exp2.phenodata.clean.test,
+                                  design = ~Rank)
+
+# Run the default analysis for DESeq2 and generate results table. NA p-values are generated by 0 counts and outliers calculated by Cook's distance.
+dds.gene.deg = DESeq(dds.gene, fitType = "local", betaPrior = FALSE)
+
+# Check for outliers: none are apparent
+# print("Check for gene expression outliers")
+# par(mar=c(8,5,2,2))
+# boxplot(log10(assays(dds.gene.deg)[["cooks"]]), range=0, las=2)
+
+#list all possible combinations of treatment groups
+groups = as.character(unique(dds.gene.deg$Rank))
+contrasts = t(combn(groups, 2))
+
+#create empty matrix to be populated with between-group comparisons
+DEGs = matrix(nrow = length(groups), 
+              ncol = length(groups), 
+              dimnames = list(groups,groups))
+
+gene.comparisons = c()
+
+#for each comparison, perform basic differential expression analysis 
+for(i in 1:nrow(contrasts)){
+  
+  comparison = results(dds.gene.deg, 
+                       contrast=c("Rank", 
+                                  contrasts[i,1], 
+                                  contrasts[i,2]),     
+                       alpha = 0.05,
+                       lfcThreshold = log2(1))
+  
+  #give comparison object a meaningful name for future reference and save that name in a list
+  assign(paste0(contrasts[i,1], ".",contrasts[i,2],".gene.comparison"), comparison)
+  gene.comparisons = append(paste0(contrasts[i,1], ".",contrasts[i,2],".gene.comparison"),gene.comparisons)
+  
+  DEGs[contrasts[i,1],contrasts[i,2]] = (sum(comparison$padj<0.05, na.rm = TRUE))
+  DEGs[contrasts[i,2],contrasts[i,1]] = DEGs[contrasts[i,1],contrasts[i,2]]
+  
+}
+
+# make a figure 
+DEGs[upper.tri(DEGs)] = NA
+
+DEGs_plot = reshape2::melt(DEGs, na.rm = TRUE)
+
+DEGplot_lfc0 = ggplot(data = DEGs_plot, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile(color = "black") +
+  geom_text(aes(label=value)) +
+  scale_fill_gradient(low = "cornsilk", high = "red", 
+                      limit = c(0,1000), space = "Lab", 
+                      name="Number of differentially\nexpressed genes at lfc = 0") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1,
+                                   size = 12, hjust = 1),
+        axis.text.y = element_text(size = 12),
+        axis.title = element_blank()) +
+  coord_fixed()
+
+#create empty matrix to be populated with between-group comparisons
+DEGs = matrix(nrow = length(groups), 
+              ncol = length(groups), 
+              dimnames = list(groups,groups))
+
+gene.comparisons = c()
+
+#for each comparison, perform basic differential expression analysis 
+for(i in 1:nrow(contrasts)){
+  
+  comparison = results(dds.gene.deg, 
+                       contrast=c("Rank", 
                                   contrasts[i,1], 
                                   contrasts[i,2]),     
                        alpha = 0.05,
@@ -972,6 +1212,9 @@ offNestDEGs_forGO = DESeq_wrap(data = exp2.phenodata.clean.no1,
                                formula = "~ OffNestFinal",
                                detail = T)
 
+offNestDEGs_forGO$OffNestFinal %>% subset(padj<0.05 & log2FoldChange>0) %>% nrow()
+
+
 foragingGO_up =  topGO_wrapper(geneScores = offNestDEGs_forGO$OffNestFinal,
                             geneScoresDE = T,
                             geneScoresDirection = "Up",
@@ -1011,6 +1254,9 @@ GOplot_foragingUp = ggplot(topForagingGO_up, aes(y = reorder(Term, result*(-1)),
         axis.text.x = element_text(size = 11),
         axis.text.y = element_text(size = 9),
         axis.title = element_text(face = "bold", size =12))
+
+#now genes that are downregulated
+offNestDEGs_forGO$OffNestFinal %>% subset(padj<0.05 & log2FoldChange<0) %>% nrow()
 
 foragingGO_down =  topGO_wrapper(geneScores = offNestDEGs_forGO$OffNestFinal,
                             geneScoresDE = T,
