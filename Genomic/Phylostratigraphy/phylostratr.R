@@ -26,9 +26,10 @@ strata %>% strata_convert(target='all', to='name') %>% sort_strata %>% plot
 
 # BLAST against each target genome (this will take a few hours)
 strata <- strata_blast(strata, makedb_args=list(verbose=T), blast_args=list(nthreads=8)) %>% strata_besthits
-# Merge results into a single hittable
+# Merge results into a single table
 results <- merge_besthits(strata)
 phylostrata <- stratify(results)
-
 table(phylostrata$mrca_name)
 
+#save
+write.csv(phylostrata, file = "/home/benjamin/Documents/LF_2020_repo/Genomic/Phylostratigraphy/phylostrata.csv")
