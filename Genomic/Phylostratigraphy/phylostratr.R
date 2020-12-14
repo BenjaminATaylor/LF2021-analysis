@@ -32,4 +32,22 @@ phylostrata <- stratify(results)
 table(phylostrata$mrca_name)
 
 #save
-write.csv(phylostrata, file = "/home/benjamin/Documents/LF_2020_repo/Genomic/Phylostratigraphy/phylostrata.csv")
+write.csv(phylostrata, file = "/home/benjamin/Documents/LF_2020_repo/Genomic/Phylostratigraphy/phylostrata.csv", row.names=F)
+
+# load for testing
+phylostrata = read.csv("/home/benjamin/Documents/LF_2020_repo/Genomic/Phylostratigraphy/phylostrata.csv")
+table(phylostrata$ps)
+# look at phylostrata
+unique(phylostrata[,c("ps","mrca_name")])
+#looks like good breaks could be:
+# LF-specific genes = 19
+# Hymenopteran genes = 16-18
+# Arthoropod genes = 10-15
+# Animal genes = 4-9
+# Ancient genes = 1-3
+
+phylostrata$bin = dplyr::case_when(phylostrata$ps == 19 ~ "Lineage-specific",
+                                   phylostrata$ps %in% c(16:18) ~ "Hymenoptera",
+                                   phylostrata$ps %in% c(10:15) ~ "Arthropoda",
+                                   phylostrata$ps %in% c(4:9) ~ "Metazoa",
+                                   phylostrata$ps %in% c(1:3) ~ "Ancient")
