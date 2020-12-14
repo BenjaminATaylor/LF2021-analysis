@@ -1740,7 +1740,7 @@ From these results, we might conclude that DarkTurquoise is a module that repres
 
 Let's find a nicer way to test for and represent the overlaps between different gene sets. First get all gene lists and GO lists that we want to compare:
 
-```{r generate_genelists_for_comparison}
+```{r generate-genelists-for-comparison}
 # Load gene count count matrix and label for Pdom
 data.gene.count = read.csv("/home/benjamin/Dropbox/Ben PhD/Chapter_2_Manuscript/input_data/data_gene_count.csv",row.names = "X")
 data.phenotype =  read.csv("/home/benjamin/Dropbox/Ben PhD/Chapter_2_Manuscript/input_data/data_phenotype.csv")[-c(1:2)]
@@ -1791,7 +1791,7 @@ GO_up_exp1_labour = topGO_wrapper(geneScores = GOscores_up_exp1_labour,
                             statistic = "fisher",
                             nodeSize = 10,
                             discretisedDE = F,
-                            p = 0.01)
+                            p = 0.01) %>% .$consolidated_result %>% .$GO.ID
 
 # downregulated GO terms
 GOscores_down_exp1_labour = as.numeric(row.names(exp1.gene.counts.clean) %in% genes_down_exp1_labour) %>% 'names<-'(row.names(exp1.gene.counts.clean))
@@ -1803,7 +1803,7 @@ GO_down_exp1_labour = topGO_wrapper(geneScores = GOscores_down_exp1_labour,
                                 statistic = "fisher",
                                 nodeSize = 10,
                                 discretisedDE = F,
-                                p = 0.01)
+                                p = 0.01) %>% .$consolidated_result %>% .$GO.ID
 
 
 
@@ -1829,7 +1829,7 @@ GO_up_exp2_rank = topGO_wrapper(geneScores = GOscores_up_exp2_rank,
                                   statistic = "fisher",
                                   nodeSize = 10,
                                   discretisedDE = F,
-                                  p = 0.01)
+                                  p = 0.01) %>% .$consolidated_result %>% .$GO.ID
 
 # downregulated GO terms
 GOscores_down_exp2_rank = as.numeric(row.names(exp2.gene.counts.clean) %in% genes_down_exp2_rank) %>% 'names<-'(row.names(exp2.gene.counts.clean))
@@ -1841,7 +1841,7 @@ GO_down_exp2_rank = topGO_wrapper(geneScores = GOscores_down_exp2_rank,
                                     statistic = "fisher",
                                     nodeSize = 10,
                                     discretisedDE = F,
-                                    p = 0.01)
+                                    p = 0.01) %>% .$consolidated_result %>% .$GO.ID
 
 
 
@@ -1867,7 +1867,7 @@ GO_up_exp2_antiforaging = topGO_wrapper(geneScores = GOscores_up_exp2_antiforagi
                                 statistic = "fisher",
                                 nodeSize = 10,
                                 discretisedDE = F,
-                                p = 0.01)
+                                p = 0.01) %>% .$consolidated_result %>% .$GO.ID
 
 # downregulated GO terms
 GOscores_down_exp2_antiforaging = as.numeric(row.names(exp2.gene.counts.clean) %in% genes_down_exp2_antiforaging) %>% 'names<-'(row.names(exp2.gene.counts.clean))
@@ -1879,7 +1879,7 @@ GO_down_exp2_antiforaging = topGO_wrapper(geneScores = GOscores_down_exp2_antifo
                                   statistic = "fisher",
                                   nodeSize = 10,
                                   discretisedDE = F,
-                                  p = 0.01)
+                                  p = 0.01) %>% .$consolidated_result %>% .$GO.ID
 
 ## P dominula: SVM
 load("/home/benjamin/Dropbox/Ben PhD/Chapter_2_Manuscript/supplementary_materials/signed_weights.Rdata")
@@ -1907,7 +1907,7 @@ GO_up_SVM = topGO_wrapper(geneScores = GOscores_up_SVM,
                           statistic = "fisher",
                           nodeSize = 10,
                           discretisedDE = F,
-                          p = 0.01)
+                          p = 0.01) %>% .$consolidated_result %>% .$GO.ID
 
 # downregulated GO terms
 GOscores_down_SVM = as.numeric(row.names(data.gene.count.clean) %in% genes_down_SVM) %>% 'names<-'(row.names(data.gene.count.clean))
@@ -1919,7 +1919,7 @@ GO_down_SVM = topGO_wrapper(geneScores = GOscores_down_SVM,
                           statistic = "fisher",
                           nodeSize = 10,
                           discretisedDE = F,
-                          p = 0.01)
+                          p = 0.01) %>% .$consolidated_result %>% .$GO.ID
 
 
 
@@ -1947,7 +1947,7 @@ GO_up_Pdom_caste = topGO_wrapper(geneScores = GOscores_up_Pdom_caste,
                                  statistic = "fisher",
                                  nodeSize = 10,
                                  discretisedDE = F,
-                                 p = 0.01)
+                                 p = 0.01) %>% .$consolidated_result %>% .$GO.ID
 
 # downregulated GO terms
 GOscores_down_Pdom_caste = as.numeric(row.names(data.gene.count.clean) %in% genes_down_Pdom_caste) %>% 'names<-'(row.names(data.gene.count.clean))
@@ -1959,49 +1959,47 @@ GO_down_Pdom_caste = topGO_wrapper(geneScores = GOscores_down_Pdom_caste,
                                    statistic = "fisher",
                                    nodeSize = 10,
                                    discretisedDE = F,
-                                   p = 0.01)
+                                   p = 0.01) %>% .$consolidated_result %>% .$GO.ID
 
 
 # green genes
 genes_green = row.names(exp2.gene.count.clean.normalize)[moduleColors=="green"]
 # green module GO terms
-GO_green = greenGO
+GO_green = greenGO %>% .$consolidated_result %>% .$GO.ID
 
 # turq genes
 genes_darkturquoise = row.names(exp2.gene.count.clean.normalize)[moduleColors=="darkturquoise"]
 # turq module GO terms
-GO_darkturquoise = darkturquoiseGO
+GO_darkturquoise = darkturquoiseGO %>% .$consolidated_result %>% .$GO.ID
+
+# all GO annotations for LF
+GO_LF_allTerms = unique(as.character(unlist(GOmapping_LF))[as.character(unlist(GOmapping_LF))!=""])
 ```
 
 Then let's compare all gene lists that are putatively direct fitness-biased:
 
-```{r genelist_directfitness_comparisons}
+```{r genelist-directfitness-comparisons}
+#list of gene list names
 upChars = c("genes_up_exp1_labour",
            "genes_up_exp2_rank",
            "genes_up_exp2_antiforaging",
            "genes_up_Pdom_caste_LF")
 
-gene_comparisons_up = list(genes_up_exp1_labour,
-                           genes_up_exp2_rank,
-                           genes_up_exp2_antiforaging,
-                           genes_up_SVM_LF,
-                           genes_up_Pdom_caste_LF)
-
-gene_comparisons_down = list(genes_down_exp1_labour,
-                             genes_down_exp2_rank,
-                             genes_down_exp2_antiforaging,
-                             genes_down_SVM_LF,
-                             genes_down_Pdom_caste_LF)
-
-
+# get all contrasts
 contrasts = t(combn(upChars, 2))
 
+#instantiate matrices
 comps = matrix(nrow = length(upChars), 
               ncol = length(upChars), 
               dimnames = list(upChars,upChars))
+labs = matrix(nrow = length(upChars), 
+              ncol = length(upChars), 
+              dimnames = list(upChars,upChars))
 
+#for each contrast, get the overlap of the terms in that contrasts
 for(i in 1:nrow(contrasts)){
   
+  #get significance
   sig = gene_overlap(get(contrasts[i,1]),
                      get(contrasts[i,2]),
                      row.names(exp2.gene.count.clean.normalize)) %>% 
@@ -2010,16 +2008,29 @@ for(i in 1:nrow(contrasts)){
   comps[contrasts[i,1],contrasts[i,2]] = sig
   comps[contrasts[i,2],contrasts[i,1]] = comps[contrasts[i,1],contrasts[i,2]]
   
+  #get lengths for text labels
+  size1 = length(get(contrasts[i,1]))
+  size2 = length(get(contrasts[i,2]))
+  inter = length(intersect(get(contrasts[i,1]),
+                           get(contrasts[i,2])))
+  label = paste0("(",inter," of ",size1,"/",size2,")")
+  labs[contrasts[i,1],contrasts[i,2]] = label
+  labs[contrasts[i,2],contrasts[i,1]] = label
+  
 }
 
+# adjust p-values
 comps[lower.tri(comps)] = round(p.adjust(comps[lower.tri(comps)], method = "BH"),digits = 4)
 comps[upper.tri(comps)] = round(p.adjust(comps[upper.tri(comps)], method = "BH"), digits = 4)
 
+# melt and plot
 comps_plot = reshape2::melt(comps, na.rm = TRUE)
-
 ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value)) + 
   geom_tile(color = "black") +
-  geom_text(aes(label=value)) +
+  geom_text(aes(label=value),
+            nudge_y = 0.05, fontface = 2) +
+  geom_text(aes(label=na.omit(c(labs))),
+            nudge_y = -0.15, size = 3) +
   scale_fill_gradientn(colours = colorRampPalette(rev(c("#FFFFFF",brewer.pal(n = 9, name = "Reds")[1:5])),bias=6)(20),
                        breaks = c(0.0,0.05,1),
                        expand = c(0,0),
@@ -2034,34 +2045,111 @@ ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value)) +
   theme(axis.text.x = element_text(angle = 45, vjust = 1,
                                    size = 12, hjust = 1),
         axis.text.y = element_text(size = 12),
-        axis.title = element_blank(),
-        panel.grid.major = element_blank()) +
+        axis.title = element_blank()) +
   coord_fixed()
+
+```
+
+And likewise for the GO terms associated with these groups:
+
+```{r GOlist-directfitness-comparisons}
+#save as a character list for purposes of combination
+upGOChars = c("GO_up_exp1_labour",
+                "GO_up_exp2_rank",
+                "GO_up_exp2_antiforaging",
+                "GO_up_Pdom_caste")
+
+#get all combinations of contrasts
+contrasts = t(combn(upGOChars, 2))
+
+#instantiate matrices
+comps = matrix(nrow = length(upGOChars), 
+               ncol = length(upGOChars), 
+               dimnames = list(upGOChars,upGOChars))
+labs = matrix(nrow = length(upGOChars), 
+              ncol = length(upGOChars), 
+              dimnames = list(upGOChars,upGOChars))
+
+#for each contrast, get the overlap of the terms in that contrasts
+for(i in 1:nrow(contrasts)){
+  
+  #get overlap of gene significance
+  sig = gene_overlap(get(contrasts[i,1]),
+                     get(contrasts[i,2]),
+                     GO_LF_allTerms) %>% 
+    .$hypergeom 
+  
+  comps[contrasts[i,1],contrasts[i,2]] = sig
+  comps[contrasts[i,2],contrasts[i,1]] = comps[contrasts[i,1],contrasts[i,2]]
+  
+  #get lengths for text labels
+  size1 = length(get(contrasts[i,1]))
+  size2 = length(get(contrasts[i,2]))
+  inter = length(intersect(get(contrasts[i,1]),
+                           get(contrasts[i,2])))
+  label = paste0("(",inter," of ",size1,"/",size2,")")
+  
+  labs[contrasts[i,1],contrasts[i,2]] = label
+  labs[contrasts[i,2],contrasts[i,1]] = label
+  
+}
+
+# adjust p-values
+# note that due to sensitivity of the hypergeometric test for GO terms, here we use the more conservative Bonferroni correction rather than B-H
+comps[lower.tri(comps)] = round(p.adjust(comps[lower.tri(comps)], method = "bonferroni"),digits = 4)
+comps[upper.tri(comps)] = round(p.adjust(comps[upper.tri(comps)], method = "bonferroni"), digits = 4)
+
+# melt and plot
+comps_plot = reshape2::melt(comps, na.rm = TRUE)
+ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile(color = "black") +
+  geom_text(aes(label=value),
+            nudge_y = 0.05, fontface = 2) +
+  geom_text(aes(label=na.omit(c(labs))),
+            nudge_y = -0.15, size = 3) +
+  scale_fill_gradientn(colours = colorRampPalette(rev(c("#FFFFFF",brewer.pal(n = 9, name = "Reds")[1:5])),bias=6)(20),
+                       breaks = c(0.0,0.05,1),
+                       expand = c(0,0),
+                       limits = c(0,1),
+                       guide = guide_colourbar(barheight = 25,
+                                               #title = "p-value\n(adjusted)",
+                                               title = "p-value\n(adjusted)",
+                                               title.vjust = 2,
+                                               frame.colour = "black", 
+                                               frame.linewidth = 1.5)) +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1,
+                                   size = 12, hjust = 1),
+        axis.text.y = element_text(size = 12),
+        axis.title = element_blank()) +
+  coord_fixed()
+
 ```
 
 All gene lists that are putatively indirect fitness-biased:
 
-```{r genelist_indirectfitness_comparisons}
+```{r genelist-indirectfitness-comparisons}
+#list of gene list names
 downChars = c("genes_down_exp1_labour",
             "genes_down_exp2_rank",
             "genes_down_exp2_antiforaging",
             "genes_down_Pdom_caste_LF")
 
-gene_comparisons_down = list(genes_down_exp1_labour,
-                             genes_down_exp2_rank,
-                             genes_down_exp2_antiforaging,
-                             genes_down_SVM_LF,
-                             genes_down_Pdom_caste_LF)
-
-
+# get all contrasts
 contrasts = t(combn(downChars, 2))
 
+#instantiate matrices
 comps = matrix(nrow = length(downChars), 
                ncol = length(downChars), 
                dimnames = list(downChars,downChars))
+labs = matrix(nrow = length(downChars), 
+              ncol = length(downChars), 
+              dimnames = list(downChars,downChars))
 
+#for each contrast, get the overlap of the terms in that contrasts
 for(i in 1:nrow(contrasts)){
   
+  #get significance
   sig = gene_overlap(get(contrasts[i,1]),
                      get(contrasts[i,2]),
                      row.names(exp2.gene.count.clean.normalize)) %>% 
@@ -2070,16 +2158,29 @@ for(i in 1:nrow(contrasts)){
   comps[contrasts[i,1],contrasts[i,2]] = sig
   comps[contrasts[i,2],contrasts[i,1]] = comps[contrasts[i,1],contrasts[i,2]]
   
+  #get lengths for text labels
+  size1 = length(get(contrasts[i,1]))
+  size2 = length(get(contrasts[i,2]))
+  inter = length(intersect(get(contrasts[i,1]),
+                           get(contrasts[i,2])))
+  label = paste0("(",inter," of ",size1,"/",size2,")")
+  labs[contrasts[i,1],contrasts[i,2]] = label
+  labs[contrasts[i,2],contrasts[i,1]] = label
+  
 }
 
+# adjust p-values
 comps[lower.tri(comps)] = round(p.adjust(comps[lower.tri(comps)], method = "BH"),digits = 4)
 comps[upper.tri(comps)] = round(p.adjust(comps[upper.tri(comps)], method = "BH"), digits = 4)
 
+# melt and plot
 comps_plot = reshape2::melt(comps, na.rm = TRUE)
-
 ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value)) + 
   geom_tile(color = "black") +
-  geom_text(aes(label=value)) +
+  geom_text(aes(label=value),
+            nudge_y = 0.05, fontface = 2) +
+  geom_text(aes(label=na.omit(c(labs))),
+            nudge_y = -0.15, size = 3) +
   scale_fill_gradientn(colours = colorRampPalette(rev(c("#FFFFFF",brewer.pal(n = 9, name = "Reds")[1:5])),bias=6)(20),
                        breaks = c(0.0,0.05,1),
                        expand = c(0,0),
@@ -2094,9 +2195,82 @@ ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value)) +
   theme(axis.text.x = element_text(angle = 45, vjust = 1,
                                    size = 12, hjust = 1),
         axis.text.y = element_text(size = 12),
-        axis.title = element_blank(),
-        panel.grid.major = element_blank()) +
+        axis.title = element_blank()) +
   coord_fixed()
+```
 
+And likewise for the GO terms associated with these groups:
+
+```{r GOlist-indirectfitness-comparisons}
+#save as a character list for purposes of combination
+downGOChars = c("GO_down_exp1_labour",
+                "GO_down_exp2_rank",
+                "GO_down_exp2_antiforaging",
+                "GO_down_Pdom_caste")
+
+#get all combinations of contrasts
+contrasts = t(combn(downGOChars, 2))
+
+#instantiate matrices
+comps = matrix(nrow = length(downGOChars), 
+               ncol = length(downGOChars), 
+               dimnames = list(downGOChars,downGOChars))
+labs = matrix(nrow = length(downGOChars), 
+               ncol = length(downGOChars), 
+               dimnames = list(downGOChars,downGOChars))
+
+#for each contrast, get the overlap of the terms in that contrasts
+for(i in 1:nrow(contrasts)){
+  
+  #get overlap of gene significance
+  sig = gene_overlap(get(contrasts[i,1]),
+                     get(contrasts[i,2]),
+                     GO_LF_allTerms) %>% 
+    .$hypergeom 
+  
+  comps[contrasts[i,1],contrasts[i,2]] = sig
+  comps[contrasts[i,2],contrasts[i,1]] = comps[contrasts[i,1],contrasts[i,2]]
+  
+  #get lengths for text labels
+  size1 = length(get(contrasts[i,1]))
+  size2 = length(get(contrasts[i,2]))
+  inter = length(intersect(get(contrasts[i,1]),
+                           get(contrasts[i,2])))
+  label = paste0("(",inter," of ",size1,"/",size2,")")
+  
+  labs[contrasts[i,1],contrasts[i,2]] = label
+  labs[contrasts[i,2],contrasts[i,1]] = label
+  
+}
+
+# adjust p-values
+# note that due to sensitivity of the hypergeometric test for GO terms, here we use the more conservative Bonferroni correction rather than B-H
+comps[lower.tri(comps)] = round(p.adjust(comps[lower.tri(comps)], method = "bonferroni"),digits = 4)
+comps[upper.tri(comps)] = round(p.adjust(comps[upper.tri(comps)], method = "bonferroni"), digits = 4)
+
+# melt and plot
+comps_plot = reshape2::melt(comps, na.rm = TRUE)
+ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile(color = "black") +
+  geom_text(aes(label=value),
+            nudge_y = 0.05, fontface = 2) +
+  geom_text(aes(label=na.omit(c(labs))),
+            nudge_y = -0.15, size = 3) +
+  scale_fill_gradientn(colours = colorRampPalette(rev(c("#FFFFFF",brewer.pal(n = 9, name = "Reds")[1:5])),bias=6)(20),
+                       breaks = c(0.0,0.05,1),
+                       expand = c(0,0),
+                       limits = c(0,1),
+                       guide = guide_colourbar(barheight = 25,
+                                               #title = "p-value\n(adjusted)",
+                                               title = "p-value\n(adjusted)",
+                                               title.vjust = 2,
+                                               frame.colour = "black", 
+                                               frame.linewidth = 1.5)) +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1,
+                                   size = 12, hjust = 1),
+        axis.text.y = element_text(size = 12),
+        axis.title = element_blank()) +
+  coord_fixed()
 ```
 
