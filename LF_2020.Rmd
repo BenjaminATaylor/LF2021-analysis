@@ -1206,7 +1206,7 @@ GOplot_foraging = ggplot(topForagingGO, aes(y = reorder(Term, result*(-1)), x = 
 
 plot(GOplot_foraging)
 ```
-```{r exp2-directional-foraging_GO, eval=F}
+```{r exp2-directional-foraging_GO}
 offNestDEGs_forGO = DESeq_wrap(data = exp2.phenodata.clean.no1,
                                genes = exp2.gene.counts.clean.no1,
                                formula = "~ OffNestFinal",
@@ -1724,7 +1724,7 @@ gene_overlap(darkturquoiseGO$consolidated_result$GO.ID, labourGO$consolidated_re
 ```
 What if we divide GO terms by their directionality? Sure enough, Green GO terms overlap significantly with GO terms that are upregulated in Pdom queens and experiment 1 reproductives, but not with GO terms that downregulated in those comparisons. 
 
-```{r}
+```{rexp2-WGCNA-GO_overlap-directional}
 print("overlap between Green GO terms and upregulated Experiment 1 reproductive vs forager GO terms:")
 gene_overlap(greenGO$consolidated_result$GO.ID, labourGO_up$consolidated_result$GO.ID, allGO) # not significant
 print("overlap between Green GO terms and downregulated Experiment 1 reproductive vs forager GO terms:")
@@ -1736,5 +1736,367 @@ print("overlap between Green GO terms and downregulated SVM GO terms:")
 gene_overlap(greenGO$consolidated_result$GO.ID, Pdom_SVM_GOdown$GO.ID, allGO) # not significant
 ```
 
-
 From these results, we might conclude that DarkTurquoise is a module that represents the 'boring' parts of foraging (catching and killing prey), while Green is a module that reflects the 'interesting' part of foraging (investment into indirect rather than direct fitness gains). This is a really nice story that works out well but for one thing, namely that the correlation of the modules with foraging rate is the reverse of what we'd expect. DarkTurquoise is *negatively* correlated with foraging rate, while Green is *positively* associated with foraging rate, which doesn't seem to make sense given our GO results! I am currently investigating this to try to work out what's going on. 
+
+Let's find a nicer way to test for and represent the overlaps between different gene sets. First get all gene lists and GO lists that we want to compare:
+
+```{r generate_genelists_for_comparison}
+# Load gene count count matrix and label for Pdom
+data.gene.count = read.csv("/home/benjamin/Dropbox/Ben PhD/Chapter_2_Manuscript/input_data/data_gene_count.csv",row.names = "X")
+data.phenotype =  read.csv("/home/benjamin/Dropbox/Ben PhD/Chapter_2_Manuscript/input_data/data_phenotype.csv")[-c(1:2)]
+
+# factorise categorical variables
+data.phenotype.clean = data.phenotype %>% dplyr::mutate_at(c("Novogene_ID",
+                                                             "BORIS_ID",
+                                                             "treatment",
+                                                             "finalrole",
+                                                             "sampletime",
+                                                             "nest",
+                                                             "agnosticrole"), as.factor)
+
+groups = unique(data.phenotype.clean$agnosticrole)
+cutrows = c()
+for(i in 1:length(groups)){
+  threshold = nrow(subset(data.phenotype.clean, agnosticrole == groups[i]))
+  subgene = data.gene.count[,which(colnames(data.gene.count) %in% subset(data.phenotype.clean, agnosticrole == groups[i])$Novogene_ID)]
+  #get all rows for which there are fewer than x counts total in the group
+  cutrows = c(cutrows,which(rowSums(subgene)<threshold))
+}
+#cut genes that have less than 20 reads total within all four groups
+remove = as.numeric(names(table(cutrows)[which(table(cutrows) == 4)]))
+data.gene.count.clean = as.matrix(data.gene.count[-remove,])
+
+
+#### all up/down comparisons
+
+## Experiment 1: reproductives vs foragers
+genes_exp1_labour = DESeq_wrap(data = exp1.phenodata.clean,
+                                genes = exp1.gene.counts.clean,
+                                formula = "~ (substr(Treatment,4,6) == 'Rep')",
+                                detail = T) 
+
+# upregulated genes (in reproductives)
+genes_up_exp1_labour = genes_exp1_labour$substr.Treatment..4..6......Rep.TRUE %>% subset(padj<0.05 & log2FoldChange > 0) %>% row.names()
+
+# downregulated genes 
+genes_down_exp1_labour = genes_exp1_labour$substr.Treatment..4..6......Rep.TRUE %>% subset(padj<0.05 & log2FoldChange < 0) %>% row.names()
+
+# upregulated GO terms
+GOscores_up_exp1_labour = as.numeric(row.names(exp1.gene.counts.clean) %in% genes_up_exp1_labour) %>% 'names<-'(row.names(exp1.gene.counts.clean))
+GO_up_exp1_labour = topGO_wrapper(geneScores = GOscores_up_exp1_labour,
+                            geneScoresDE = F,
+                            geneScoresDirection = NA,
+                            GOmapping = GOmapping_LF,
+                            algorithm = "weight01",
+                            statistic = "fisher",
+                            nodeSize = 10,
+                            discretisedDE = F,
+                            p = 0.01)
+
+# downregulated GO terms
+GOscores_down_exp1_labour = as.numeric(row.names(exp1.gene.counts.clean) %in% genes_down_exp1_labour) %>% 'names<-'(row.names(exp1.gene.counts.clean))
+GO_down_exp1_labour = topGO_wrapper(geneScores = GOscores_down_exp1_labour,
+                                geneScoresDE = F,
+                                geneScoresDirection = NA,
+                                GOmapping = GOmapping_LF,
+                                algorithm = "weight01",
+                                statistic = "fisher",
+                                nodeSize = 10,
+                                discretisedDE = F,
+                                p = 0.01)
+
+
+
+## Experiment 2: rank 1 vs others
+genes_exp2_rank = DESeq_wrap(data = exp2.phenodata.clean,
+                               genes = exp2.gene.counts.clean,
+                               formula = "~ (Rank == 1)",
+                               detail = T) 
+
+# upregulated genes (in rank 1)
+genes_up_exp2_rank = genes_exp2_rank$Rank....1TRUE %>% subset(padj<0.05 & log2FoldChange > 0) %>% row.names()
+
+# downregulated genes 
+genes_down_exp2_rank = genes_exp2_rank$Rank....1TRUE %>% subset(padj<0.05 & log2FoldChange < 0) %>% row.names()
+
+# upregulated GO terms
+GOscores_up_exp2_rank = as.numeric(row.names(exp2.gene.counts.clean) %in% genes_up_exp2_rank) %>% 'names<-'(row.names(exp2.gene.counts.clean))
+GO_up_exp2_rank = topGO_wrapper(geneScores = GOscores_up_exp2_rank,
+                                  geneScoresDE = F,
+                                  geneScoresDirection = NA,
+                                  GOmapping = GOmapping_LF,
+                                  algorithm = "weight01",
+                                  statistic = "fisher",
+                                  nodeSize = 10,
+                                  discretisedDE = F,
+                                  p = 0.01)
+
+# downregulated GO terms
+GOscores_down_exp2_rank = as.numeric(row.names(exp2.gene.counts.clean) %in% genes_down_exp2_rank) %>% 'names<-'(row.names(exp2.gene.counts.clean))
+GO_down_exp2_rank = topGO_wrapper(geneScores = GOscores_down_exp2_rank,
+                                    geneScoresDE = F,
+                                    geneScoresDirection = NA,
+                                    GOmapping = GOmapping_LF,
+                                    algorithm = "weight01",
+                                    statistic = "fisher",
+                                    nodeSize = 10,
+                                    discretisedDE = F,
+                                    p = 0.01)
+
+
+
+## Experiment 2: foraging rate
+genes_exp2_foraging = DESeq_wrap(data = exp2.phenodata.clean.no1,
+                                 genes = exp2.gene.counts.clean.no1,
+                                 formula = "~ OffNestFinal",
+                                 detail = T) 
+
+# upregulated genes (with *decreasing* foraging rate)
+genes_up_exp2_antiforaging = genes_exp2_foraging$OffNestFinal %>% subset(padj<0.05 & log2FoldChange < 0) %>% row.names()
+
+# downregulated genes 
+genes_down_exp2_antiforaging = genes_exp2_foraging$OffNestFinal %>% subset(padj<0.05 & log2FoldChange > 0) %>% row.names()
+
+# upregulated GO terms
+GOscores_up_exp2_antiforaging = as.numeric(row.names(exp2.gene.counts.clean) %in% genes_up_exp2_antiforaging) %>% 'names<-'(row.names(exp2.gene.counts.clean))
+GO_up_exp2_antiforaging = topGO_wrapper(geneScores = GOscores_up_exp2_antiforaging,
+                                geneScoresDE = F,
+                                geneScoresDirection = NA,
+                                GOmapping = GOmapping_LF,
+                                algorithm = "weight01",
+                                statistic = "fisher",
+                                nodeSize = 10,
+                                discretisedDE = F,
+                                p = 0.01)
+
+# downregulated GO terms
+GOscores_down_exp2_antiforaging = as.numeric(row.names(exp2.gene.counts.clean) %in% genes_down_exp2_antiforaging) %>% 'names<-'(row.names(exp2.gene.counts.clean))
+GO_down_exp2_antiforaging = topGO_wrapper(geneScores = GOscores_down_exp2_antiforaging,
+                                  geneScoresDE = F,
+                                  geneScoresDirection = NA,
+                                  GOmapping = GOmapping_LF,
+                                  algorithm = "weight01",
+                                  statistic = "fisher",
+                                  nodeSize = 10,
+                                  discretisedDE = F,
+                                  p = 0.01)
+
+## P dominula: SVM
+load("/home/benjamin/Dropbox/Ben PhD/Chapter_2_Manuscript/supplementary_materials/signed_weights.Rdata")
+load("/home/benjamin/Dropbox/Ben PhD/PhD Docs/Florence RNAseq/Data/data for GO/GO_mapping.Rdata")
+LF_PDom_BLAST = read.csv("/home/benjamin/Dropbox/Ben PhD/PhD Docs/Paper 3/Objective_2/Data/LD_Pdom_BLAST_orthologues.csv")
+
+# upregulated genes (in queens)
+genes_up_SVM = names(signed_weights)[signed_weights>0]
+#convert to LF labels
+genes_up_SVM_LF = LF_PDom_BLAST$Liostenogaster_flavolineata[LF_PDom_BLAST$Polistes_dominula %in% genes_up_SVM]
+
+# downregulated genes 
+genes_down_SVM = names(signed_weights)[signed_weights<0]
+# convert to LF labels
+genes_down_SVM_LF = LF_PDom_BLAST$Liostenogaster_flavolineata[LF_PDom_BLAST$Polistes_dominula %in% genes_down_SVM]
+
+
+# upregulated GO terms
+GOscores_up_SVM = as.numeric(row.names(data.gene.count.clean) %in% genes_up_SVM) %>% 'names<-'(row.names(data.gene.count.clean))
+GO_up_SVM = topGO_wrapper(geneScores = GOscores_up_SVM,
+                          geneScoresDE = F,
+                          geneScoresDirection = NA,
+                          GOmapping = GOmapping,
+                          algorithm = "weight01",
+                          statistic = "fisher",
+                          nodeSize = 10,
+                          discretisedDE = F,
+                          p = 0.01)
+
+# downregulated GO terms
+GOscores_down_SVM = as.numeric(row.names(data.gene.count.clean) %in% genes_down_SVM) %>% 'names<-'(row.names(data.gene.count.clean))
+GO_down_SVM = topGO_wrapper(geneScores = GOscores_down_SVM,
+                          geneScoresDE = F,
+                          geneScoresDirection = NA,
+                          GOmapping = GOmapping,
+                          algorithm = "weight01",
+                          statistic = "fisher",
+                          nodeSize = 10,
+                          discretisedDE = F,
+                          p = 0.01)
+
+
+
+## P dominula: DESeq2
+Pdom_caste_DEGs = read.csv("/home/benjamin/Dropbox/Ben PhD/PhD Docs/Florence RNAseq/Data/DESeq2_ctrl_vs_queen_noLFCT.csv", row.names = 1)
+
+# upregulated genes (in queens- note that the reference level for this cimparison is queen, so the inequality operators are reveresed in this case)
+genes_up_Pdom_caste = Pdom_caste_DEGs %>% subset(padj<0.05 & log2FoldChange < 0) %>% row.names()
+# convert to LF IDs
+genes_up_Pdom_caste_LF = LF_PDom_BLAST$Liostenogaster_flavolineata[LF_PDom_BLAST$Polistes_dominula %in% genes_up_Pdom_caste]
+
+# downregulated genes 
+genes_down_Pdom_caste = Pdom_caste_DEGs %>% subset(padj<0.05 & log2FoldChange > 0) %>% row.names()
+# convert to LF labels
+genes_down_Pdom_caste_LF = LF_PDom_BLAST$Liostenogaster_flavolineata[LF_PDom_BLAST$Polistes_dominula %in% genes_down_Pdom_caste]
+
+
+# upregulated GO terms
+GOscores_up_Pdom_caste = as.numeric(row.names(data.gene.count.clean) %in% genes_up_Pdom_caste) %>% 'names<-'(row.names(data.gene.count.clean))
+GO_up_Pdom_caste = topGO_wrapper(geneScores = GOscores_up_Pdom_caste,
+                                 geneScoresDE = F,
+                                 geneScoresDirection = NA,
+                                 GOmapping = GOmapping,
+                                 algorithm = "weight01",
+                                 statistic = "fisher",
+                                 nodeSize = 10,
+                                 discretisedDE = F,
+                                 p = 0.01)
+
+# downregulated GO terms
+GOscores_down_Pdom_caste = as.numeric(row.names(data.gene.count.clean) %in% genes_down_Pdom_caste) %>% 'names<-'(row.names(data.gene.count.clean))
+GO_down_Pdom_caste = topGO_wrapper(geneScores = GOscores_down_Pdom_caste,
+                                   geneScoresDE = F,
+                                   geneScoresDirection = NA,
+                                   GOmapping = GOmapping,
+                                   algorithm = "weight01",
+                                   statistic = "fisher",
+                                   nodeSize = 10,
+                                   discretisedDE = F,
+                                   p = 0.01)
+
+
+# green genes
+genes_green = row.names(exp2.gene.count.clean.normalize)[moduleColors=="green"]
+# green module GO terms
+GO_green = greenGO
+
+# turq genes
+genes_darkturquoise = row.names(exp2.gene.count.clean.normalize)[moduleColors=="darkturquoise"]
+# turq module GO terms
+GO_darkturquoise = darkturquoiseGO
+```
+
+Then let's compare all gene lists that are putatively direct fitness-biased:
+
+```{r genelist_directfitness_comparisons}
+upChars = c("genes_up_exp1_labour",
+           "genes_up_exp2_rank",
+           "genes_up_exp2_antiforaging",
+           "genes_up_Pdom_caste_LF")
+
+gene_comparisons_up = list(genes_up_exp1_labour,
+                           genes_up_exp2_rank,
+                           genes_up_exp2_antiforaging,
+                           genes_up_SVM_LF,
+                           genes_up_Pdom_caste_LF)
+
+gene_comparisons_down = list(genes_down_exp1_labour,
+                             genes_down_exp2_rank,
+                             genes_down_exp2_antiforaging,
+                             genes_down_SVM_LF,
+                             genes_down_Pdom_caste_LF)
+
+
+contrasts = t(combn(upChars, 2))
+
+comps = matrix(nrow = length(upChars), 
+              ncol = length(upChars), 
+              dimnames = list(upChars,upChars))
+
+for(i in 1:nrow(contrasts)){
+  
+  sig = gene_overlap(get(contrasts[i,1]),
+                     get(contrasts[i,2]),
+                     row.names(exp2.gene.count.clean.normalize)) %>% 
+    .$hypergeom 
+  
+  comps[contrasts[i,1],contrasts[i,2]] = sig
+  comps[contrasts[i,2],contrasts[i,1]] = comps[contrasts[i,1],contrasts[i,2]]
+  
+}
+
+comps[lower.tri(comps)] = round(p.adjust(comps[lower.tri(comps)], method = "BH"),digits = 4)
+comps[upper.tri(comps)] = round(p.adjust(comps[upper.tri(comps)], method = "BH"), digits = 4)
+
+comps_plot = reshape2::melt(comps, na.rm = TRUE)
+
+ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile(color = "black") +
+  geom_text(aes(label=value)) +
+  scale_fill_gradientn(colours = colorRampPalette(rev(c("#FFFFFF",brewer.pal(n = 9, name = "Reds")[1:5])),bias=6)(20),
+                       breaks = c(0.0,0.05,1),
+                       expand = c(0,0),
+                       limits = c(0,1),
+                       guide = guide_colourbar(barheight = 25,
+                                               #title = "p-value\n(adjusted)",
+                                               title = "p-value\n(adjusted)",
+                                               title.vjust = 2,
+                                               frame.colour = "black", 
+                                               frame.linewidth = 1.5)) +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1,
+                                   size = 12, hjust = 1),
+        axis.text.y = element_text(size = 12),
+        axis.title = element_blank(),
+        panel.grid.major = element_blank()) +
+  coord_fixed()
+```
+
+All gene lists that are putatively indirect fitness-biased:
+
+```{r genelist_indirectfitness_comparisons}
+downChars = c("genes_down_exp1_labour",
+            "genes_down_exp2_rank",
+            "genes_down_exp2_antiforaging",
+            "genes_down_Pdom_caste_LF")
+
+gene_comparisons_down = list(genes_down_exp1_labour,
+                             genes_down_exp2_rank,
+                             genes_down_exp2_antiforaging,
+                             genes_down_SVM_LF,
+                             genes_down_Pdom_caste_LF)
+
+
+contrasts = t(combn(downChars, 2))
+
+comps = matrix(nrow = length(downChars), 
+               ncol = length(downChars), 
+               dimnames = list(downChars,downChars))
+
+for(i in 1:nrow(contrasts)){
+  
+  sig = gene_overlap(get(contrasts[i,1]),
+                     get(contrasts[i,2]),
+                     row.names(exp2.gene.count.clean.normalize)) %>% 
+    .$hypergeom 
+  
+  comps[contrasts[i,1],contrasts[i,2]] = sig
+  comps[contrasts[i,2],contrasts[i,1]] = comps[contrasts[i,1],contrasts[i,2]]
+  
+}
+
+comps[lower.tri(comps)] = round(p.adjust(comps[lower.tri(comps)], method = "BH"),digits = 4)
+comps[upper.tri(comps)] = round(p.adjust(comps[upper.tri(comps)], method = "BH"), digits = 4)
+
+comps_plot = reshape2::melt(comps, na.rm = TRUE)
+
+ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile(color = "black") +
+  geom_text(aes(label=value)) +
+  scale_fill_gradientn(colours = colorRampPalette(rev(c("#FFFFFF",brewer.pal(n = 9, name = "Reds")[1:5])),bias=6)(20),
+                       breaks = c(0.0,0.05,1),
+                       expand = c(0,0),
+                       limits = c(0,1),
+                       guide = guide_colourbar(barheight = 25,
+                                               #title = "p-value\n(adjusted)",
+                                               title = "p-value\n(adjusted)",
+                                               title.vjust = 2,
+                                               frame.colour = "black", 
+                                               frame.linewidth = 1.5)) +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1,
+                                   size = 12, hjust = 1),
+        axis.text.y = element_text(size = 12),
+        axis.title = element_blank(),
+        panel.grid.major = element_blank()) +
+  coord_fixed()
+
+```
+
