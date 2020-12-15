@@ -23,7 +23,9 @@ basic_libraries <- c("ggpubr",
                      "topGO",
                      "RColorBrewer",
                      "WGCNA",
-                     "limma")
+                     "limma",
+                     "ggforce",
+                     "ggrepel")
 
 for (lib in basic_libraries) {
         if (require(package = lib, character.only = TRUE)) {
@@ -142,17 +144,69 @@ For all manipulations, focal wasps were left on manipulated nests from days 10-2
 
 Looking at the phenotypic data, we can see an immediate problem. Solitary reproductives and solitary foragers nominally shouldn't differ in their foraging rates, yet they clearly do, which makes me question whether the experimental design was exactly as described above. Could it be that Daisy intentionally identified individuals that differed in their foraging rates even while solitary? On the other hand, there is no difference between the two solitary treatments in terms of number of developed eggs, so that's good.
 ```{r exp1-plot-foraging-rate-and-eggs-by-treatment}
-gg_exp1_TimeOnNest = ggplot(exp1.phenodata.clean, aes(x = Treatment, y = (100-TimeOnNest), label = WaspID)) + 
-    geom_boxplot() +
-    #geom_text() +
-    geom_point()
+gg_exp1_TimeOnNest = ggplot(exp1.phenodata.clean, aes(x = Treatment, y = (100-TimeOnNest), label = WaspID, colour = Treatment)) + 
+  geom_boxplot(notch = F, outlier.shape = NA, lwd = 1, colour = "black") +
+  ggbeeswarm::geom_beeswarm(shape = 19, size = 4, show.legend = FALSE, alpha = .7) +
+  #geom_violin() +
+  #geom_text() +
+  #geom_point(shape = 19, size = 4, show.legend = FALSE, alpha = .7) +
+  #geom_dotplot(binaxis='y', stackdir='center', dotsize=0.5) +
+  scale_colour_manual(values = brewer.pal(4, "Paired")) +
+  theme_bw() +  
+  ylab(label = "Proportion of time spent off nest") +
+  scale_x_discrete(labels = c("Social\nForager",
+                              "Social\nReproductive",
+                              "Solitary\nForager",
+                              "Solitary\nReproductive")) +
+  theme(aspect.ratio = 1, 
+        legend.position = "none",
+        plot.title = element_text(size=18, face="bold", hjust = 0.5),
+        axis.text.x = element_text(size=15),
+        axis.text.y = element_text(size=15),
+        axis.title.x = element_text(size=18, face = "bold"),
+        axis.title.y = element_text(size=18, face = "bold"),
+        panel.grid = element_line(size = 0.2, colour = "gray95"),
+        #axis.line = element_line(size = 1),
+        axis.ticks = element_line(size=1),
+        panel.border = element_rect(size=1.5),
+        strip.text.x = element_text(size=15, face = "bold"),
+        strip.background = element_rect(size = 1.5))
+  
 
-gg_exp1_DevelopedEggs = ggplot(exp1.phenodata.clean, aes(x = Treatment, y = DevelopedEggs, label = WaspID)) + 
-    geom_boxplot() +
-    #geom_text() +
-    geom_point()
+gg_exp1_DevelopedEggs = ggplot(exp1.phenodata.clean, aes(x = Treatment, y = DevelopedEggs, label = WaspID, colour = Treatment)) + 
+  geom_boxplot(notch = F, outlier.shape = NA, lwd = 1, colour = "black") +
+  ggbeeswarm::geom_beeswarm(shape = 19, size = 4, show.legend = FALSE, alpha = .7) +
+  #geom_violin() +
+  #geom_text() +
+  #geom_point(shape = 19, size = 4, show.legend = FALSE, alpha = .7) +
+  #geom_dotplot(binaxis='y', stackdir='center', dotsize=0.5) +
+  scale_colour_manual(values = brewer.pal(4, "Paired")) +
+  theme_bw() +  
+  ylab(label = "Number of developed eggs") +
+    scale_x_discrete(labels = c("Social\nForager",
+                              "Social\nReproductive",
+                              "Solitary\nForager",
+                              "Solitary\nReproductive")) +
+  theme(aspect.ratio = 1, 
+        legend.position = "none",
+        plot.title = element_text(size=18, face="bold", hjust = 0.5),
+        axis.text.x = element_text(size=15),
+        axis.text.y = element_text(size=15),
+        axis.title.x = element_text(size=18, face = "bold"),
+        axis.title.y = element_text(size=18, face = "bold"),
+        panel.grid = element_line(size = 0.2, colour = "gray95"),
+        #axis.line = element_line(size = 1),
+        axis.ticks = element_line(size=1),
+        panel.border = element_rect(size=1.5),
+        strip.text.x = element_text(size=15, face = "bold"),
+        strip.background = element_rect(size = 1.5))
 
-plot(ggarrange(gg_exp1_TimeOnNest, gg_exp1_DevelopedEggs))
+#arrange
+gg_exp1_phenotypes = ggarrange(gg_exp1_TimeOnNest, gg_exp1_DevelopedEggs, labels = "AUTO")
+plot(gg_exp1_phenotypes)
+
+ggsave(gg_exp1_phenotypes, filename = "experiment1_foraging_and_eggs.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
+       width = 30, height = 18, units = "cm")
 
 # get means and ranges
 exp1.phenodata.clean %>% 
@@ -241,23 +295,41 @@ ggpcadata = pca.out$values %>%
   rownames_to_column(var = "WaspID") %>%
   left_join(exp1.phenodata.clean,
             by = "WaspID")
+
 #plot
-ggplot(ggpcadata, aes(x = PC1, y = PC2, color = Treatment, label = WaspID)) +
+gg_exp1_pca_highvar = ggplot(ggpcadata, aes(x = PC1, y = PC2, color = Treatment, label = WaspID)) +
   geom_point(size = 5, position = position_jitter(width = 0.5,height=0.5)) +
-  geom_text(vjust = -1) +
+  #ggrepel::geom_text_repel() +
+  geom_text(hjust = 0.6, vjust = -0.6, 
+            colour = ifelse(ggpcadata$WaspID=="SolF7",brewer.pal(4, "Paired")[3],NA)) +
   xlab(paste0("PC",1,": ",signif(pca.out$percent.var[1]*100, 3),"%")) +
   ylab(paste0("PC",2,": ",signif(pca.out$percent.var[2]*100, 3),"%")) +
   theme_bw() +
-  # scale_color_manual(name = "Treatment",
-  #                    values = brewer.pal(7, "Paired")) +
+  scale_colour_manual(values = brewer.pal(4, "Paired"),
+                      labels = c("Social Forager",
+                                 "Social Reproductive",
+                                 "Solitary Forager",
+                                 "Solitary Reproductive")) +
   scale_shape_manual(name = "Treatment",
                      values = c(8,15:20)) +
-  theme(panel.grid = element_line(color = "grey95"),
-        legend.title = element_text(face = "bold"),
-        axis.text.x = element_text(size = 11),
-        axis.text.y = element_text(size = 11),
-        axis.title = element_text(face = "bold", size =12))
+  theme(aspect.ratio = 1, 
+        legend.text = element_text(size=15),
+        legend.title = element_text(size=15, face = "bold"),
+        plot.title = element_text(size=18, face="bold", hjust = 0.5),
+        axis.text.x = element_text(size=15),
+        axis.text.y = element_text(size=15),
+        axis.title.x = element_text(size=18, face = "bold"),
+        axis.title.y = element_text(size=18, face = "bold"),
+        panel.grid = element_line(size = 0.2, colour = "gray95"),
+        axis.ticks = element_line(size=1),
+        panel.border = element_rect(size=1.5),
+        strip.text.x = element_text(size=15, face = "bold"),
+        strip.background = element_rect(size = 1.5))
 
+plot(gg_exp1_pca_highvar)
+
+ggsave(gg_exp1_pca_highvar, filename = "experiment1_pca.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
+       width = 25, height = 20, units = "cm")
 ```
 
 Now we perform pairwise comparisons between each different treatment group. Doing so, we find that social foragers show significant differential expression with social reproductives and even more so with solitary reproductives. Apart from this, we find no meaningful signals of differential expression. This is particularly interesting in the case of solitary foragers- these individuals don't show differential expression with reproductives, but nor do they do so with social foragers. That's confusing! 
@@ -279,6 +351,10 @@ dds.gene.deg = DESeq(dds.gene, fitType = "local", betaPrior = FALSE)
 # boxplot(log10(assays(dds.gene.deg)[["cooks"]]), range=0, las=2)
 #list all possible combinations of treatment groups
 groups = as.character(unique(dds.gene.deg$Treatment))
+groupsNames = c("Social\nForager",
+                "Social\nReproductive",
+                "Solitary\nForager",
+                "Solitary\nReproductive")
 contrasts = t(combn(groups, 2))
 #create empty matrix to be populated with between-group comparisons
 DEGs = matrix(nrow = length(groups), 
@@ -303,19 +379,23 @@ for(i in 1:nrow(contrasts)){
   }
 
 # make a figure 
+dimnames(DEGs) = list(groupsNames, groupsNames)
 DEGs[upper.tri(DEGs)] = NA
 DEGs_plot = reshape2::melt(DEGs, na.rm = TRUE)
 DEGplot_lfc0 = ggplot(data = DEGs_plot, aes(x=Var1, y=Var2, fill=value)) + 
-  geom_tile(color = "black") +
-  geom_text(aes(label=value)) +
+  geom_tile(color = "grey50", size = 0.5) +
+  geom_text(aes(label=value), size = 7, face = "bold") +
   scale_fill_gradient(low = "cornsilk", high = "red", 
-                      limit = c(0,500), space = "Lab", 
-                      name="Number of differentially\nexpressed genes at lfc = 0") +
+                      limit = c(0,550), breaks = c(0,500), space = "Lab", 
+                      name="Number of differentially\nexpressed genes") +
   theme_minimal() + 
-  theme(axis.text.x = element_text(angle = 45, vjust = 1,
-                                   size = 12, hjust = 1),
-        axis.text.y = element_text(size = 12),
-        axis.title = element_blank()) +
+  theme(aspect.ratio = 1,
+        panel.grid = element_line(size = 0.2, colour = "gray80"),
+        axis.text.x = element_text(size = 15),
+        axis.text.y = element_text(size = 15),
+        axis.title = element_blank(),
+        legend.text = element_text(size=12),
+        legend.title = element_text(size=15, face = "bold")) +
   coord_fixed()
 
 #collect genes that were differentially expressed in any comparison
@@ -351,23 +431,32 @@ for(i in 1:nrow(contrasts)){
   
 }
 # make a figure 
+dimnames(DEGs) = list(groupsNames, groupsNames)
 DEGs[upper.tri(DEGs)] = NA
 DEGs_plot = reshape2::melt(DEGs, na.rm = TRUE)
 DEGplot_lfc1.5 = ggplot(data = DEGs_plot, aes(x=Var1, y=Var2, fill=value)) + 
-  geom_tile(color = "black") +
-  geom_text(aes(label=value)) +
+  geom_tile(color = "grey50", size = 0.5) +
+  geom_text(aes(label=value), size = 7, face = "bold") +
   scale_fill_gradient(low = "cornsilk", high = "red", 
-                      limit = c(0,500), space = "Lab", 
-                      name="Number of differentially\nexpressed genes at lfc = log2(1.5)") +
+                      limit = c(0,550), breaks = c(0,500), space = "Lab", 
+                      name="Number of differentially\nexpressed genes") +
   theme_minimal() + 
-  theme(axis.text.x = element_text(angle = 45, vjust = 1,
-                                   size = 12, hjust = 1),
-        axis.text.y = element_text(size = 12),
-        axis.title = element_blank()) +
+  theme(aspect.ratio = 1,
+        panel.grid = element_line(size = 0.2, colour = "gray80"),
+        axis.text.x = element_text(size = 15),
+        axis.text.y = element_text(size = 15),
+        axis.title = element_blank(),
+        legend.text = element_text(size=12),
+        legend.title = element_text(size=15, face = "bold")) +
   coord_fixed()
 
 #give both plot
-plot(ggarrange(DEGplot_lfc0, DEGplot_lfc1.5, ncol = 1))
+gg_exp1_pairwise_DEGs = ggarrange(DEGplot_lfc0, DEGplot_lfc1.5, ncol = 2, common.legend = T, labels = "AUTO", legend = "top")
+
+plot(gg_exp1_pairwise_DEGs)
+
+ggsave(gg_exp1_pairwise_DEGs, filename = "experiment1_pairwise_DEGs.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
+       width = 40, height = 20, units = "cm")
 ```
 
 Our initial findings suggest reasonably strong differential expression between reproductives and (solitary) foragers, but seemingly not between solitary and social individuals. When we compare all reproductive vs all foraging individuals, and likewise all social vs all solitary individuals, we confirm this result:
@@ -595,13 +684,29 @@ First, we look at foraging rates for all individuals prior to manipulation. This
 
 ```{r exp2-phenotype-foraging-before-with-rank}
 #plot time off nest against rank
-ggplot(exp2.phenodata.clean, aes(x = as.factor(Rank), y = OffNestBefore)) +
-  geom_boxplot() +
-  geom_point() +
+gg_exp2_foragingbefore = ggplot(exp2.phenodata.clean, aes(x = as.factor(Rank), y = OffNestBefore, colour = as.factor(Rank))) +
+  geom_boxplot(notch = F, outlier.shape = NA, lwd = 1, colour = "black") +
+  ggbeeswarm::geom_beeswarm(shape = 19, size = 4, show.legend = FALSE, alpha = .7) +
+  scale_colour_manual(values = c("midnightblue",brewer.pal(6, "YlOrRd")[6:3])) +
   xlab("Original Rank") +
   ylab("Time off nest before manipulation") +
-  theme_bw() +
-  theme(plot.title = element_text(hjust = 0.5))
+  theme_bw() +  
+  theme(aspect.ratio = 1, 
+        legend.position = "none",
+        plot.title = element_text(size=18, face="bold", hjust = 0.5),
+        axis.text.x = element_text(size=15),
+        axis.text.y = element_text(size=15),
+        axis.title.x = element_text(size=18, face = "bold"),
+        axis.title.y = element_text(size=18, face = "bold"),
+        panel.grid = element_line(size = 0.2, colour = "gray95"),
+        #axis.line = element_line(size = 1),
+        axis.ticks = element_line(size=1),
+        panel.border = element_rect(size=1.5),
+        strip.text.x = element_text(size=15, face = "bold"),
+        strip.background = element_rect(size = 1.5))
+
+ggsave(gg_exp2_foragingbefore, filename = "experiment2_foraging_original.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
+       width = 25, height = 20, units = "cm")
 
 print("Relationship between rank and foraging rate prior to manipulation:")
 #the relationship is highly significant

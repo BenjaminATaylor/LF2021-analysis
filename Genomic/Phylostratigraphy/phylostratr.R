@@ -51,3 +51,11 @@ phylostrata$bin = dplyr::case_when(phylostrata$ps == 19 ~ "Lineage-specific",
                                    phylostrata$ps %in% c(10:15) ~ "Arthropoda",
                                    phylostrata$ps %in% c(4:9) ~ "Metazoa",
                                    phylostrata$ps %in% c(1:3) ~ "Ancient")
+
+phylostrata$qseqid = substr(phylostrata$qseqid,1,14)
+
+phylo_up = subset(phylostrata, qseqid %in% genes_up_exp2_antiforaging)$bin
+phylo_down = subset(phylostrata, qseqid %in% genes_down_exp2_antiforaging)$bin
+
+table(phylo_up)/length(phylo_up)
+table(phylo_down)/length(phylo_down)
