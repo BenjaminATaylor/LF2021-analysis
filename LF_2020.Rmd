@@ -739,16 +739,36 @@ Our next prediction is that individuals should alter their foraging rate when ot
 Foraging rate for this group does not change significantly following nest size manipulation, nor do we find strong evidence for changes in mean foraging rate for any other group (but in the latter cases it's impossible to tell if this is just the effect of individuals' rank increases being canceled out by the change in group size).
 
 ```{r exp2-phenotype-foraging-change}
-treatments = c("Rank 1", "Rank 2\n(size manipulation)", "Rank 2\n(control)", "Rank 2\n(elevated rank)",
+treatments = c("Rank 1", "Rank 2\n(unchanged)", "Rank 2\n(control)", "Rank 2\n(elevated rank)",
            "Rank 3\n(control)", "Rank 3\n(elevated rank)", "Rank 4\n(elevated rank)")
 
-ggplot(subset(exp2.phenodata.clean,Control==F), aes(x = Treatment, y = OffNestChange)) +
-  geom_boxplot() +
-  geom_point() +
+gg_exp2_foragingchange = ggplot(subset(exp2.phenodata.clean,Control==F), aes(x = Treatment, y = OffNestChange, colour = Treatment)) +
+  geom_boxplot(notch = F, outlier.shape = NA, lwd = 1, colour = "black") +
+  ggbeeswarm::geom_beeswarm(shape = 19, size = 4, show.legend = FALSE, alpha = .7) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  scale_colour_manual(values = c("midnightblue",brewer.pal(6, "YlOrRd")[c(6,6,5,4)])) +
+  xlab("Rank after manipulation") +
   scale_x_discrete(labels = treatments[c(1:2,4,6:7)]) +
-  theme_bw() +
-  ggtitle("Change in time off nest following manipulation") +
-  theme(plot.title = element_text(hjust = 0.5))
+  ylab("Time off nest before manipulation") +
+  theme_bw() +  
+  theme(aspect.ratio = 1, 
+        legend.position = "none",
+        plot.title = element_text(size=18, face="bold", hjust = 0.5),
+        axis.text.x = element_text(size=13),
+        axis.text.y = element_text(size=15),
+        axis.title.x = element_text(size=18, face = "bold"),
+        axis.title.y = element_text(size=18, face = "bold"),
+        panel.grid = element_line(size = 0.2, colour = "gray95"),
+        #axis.line = element_line(size = 1),
+        axis.ticks = element_line(size=1),
+        panel.border = element_rect(size=1.5),
+        strip.text.x = element_text(size=15, face = "bold"),
+        strip.background = element_rect(size = 1.5))
+
+plot(gg_exp2_foragingchange)
+
+ggsave(gg_exp2_foragingchange, filename = "experiment2_foraging_change.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
+       width = 25, height = 20, units = "cm")
 
 #does time off nest shift for individuals that increase in rank?
 mean(na.omit(exp2.phenodata.clean$OffNestChange[which(exp2.phenodata.clean$RankChange==T)]))
@@ -764,21 +784,39 @@ wilcox.test(na.omit(exp2.phenodata.clean$OffNestChange[which(exp2.phenodata.clea
 Let's move on to ovarian data. These are fairly clear: rank 1individuals almost uniformly have well-developed ovaries with plenty of eggs, with all others having no ovarian development. A small number of size-manipulated rank 2 individuals are the exception, being somewhere intermediate in ovarian development. 
 
 ```{r exp2-phenotype-ovarian}
-ggplot(exp2.phenodata.clean, aes(x = Treatment, y = NoEggs, label = WaspID)) +
-  geom_boxplot() +
-  #geom_text() +
-  geom_point() +
+#plot number of eggs
+gg_exp2_eggs = ggplot(exp2.phenodata.clean, aes(x = Treatment, y = NoEggs, label = WaspID, colour = Treatment)) +
+  geom_boxplot(notch = F, outlier.shape = NA, lwd = 1) +
+  #ggbeeswarm::geom_beeswarm(shape = 19, size = 4, show.legend = FALSE, alpha = .7) +
+  scale_colour_manual(values = c("midnightblue",brewer.pal(6, "YlOrRd")[c(6,6,6,4,4,3)])) +
   scale_x_discrete(labels = treatments) +
-  theme_bw() +
-  ggtitle("Number of eggs") +
-  theme(plot.title = element_text(hjust = 0.5))
+  xlab("Rank after manipulation") +
+  ylab("Number of developed eggs") +
+  theme_bw() +  
+  theme(aspect.ratio = 1, 
+        legend.position = "none",
+        plot.title = element_text(size=18, face="bold", hjust = 0.5),
+        axis.text.x = element_text(size=11),
+        axis.text.y = element_text(size=15),
+        axis.title.x = element_text(size=18, face = "bold"),
+        axis.title.y = element_text(size=18, face = "bold"),
+        panel.grid = element_line(size = 0.2, colour = "gray95"),
+        #axis.line = element_line(size = 1),
+        axis.ticks = element_line(size=1),
+        panel.border = element_rect(size=1.5),
+        strip.text.x = element_text(size=15, face = "bold"),
+        strip.background = element_rect(size = 1.5))
 
-ggplot(subset(exp2.phenodata.clean, !(is.na(Ovaries))), aes(x = Treatment, y = Ovaries)) +
-  geom_jitter(width = 0.05, height = 0.05) +
-  scale_x_discrete(labels = treatments) +
-  theme_bw() +
-  ggtitle("Ovarian score") +
-  theme(plot.title = element_text(hjust = 0.5))
+ggsave(gg_exp2_eggs, filename = "experiment2_eggs.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures",
+       width = 25, height = 20, units = "cm")
+
+#here we could also plot ovarian development
+# ggplot(subset(exp2.phenodata.clean, !(is.na(Ovaries))), aes(x = Treatment, y = Ovaries)) +
+#   geom_jitter(width = 0.05, height = 0.05) +
+#   scale_x_discrete(labels = treatments) +
+#   theme_bw() +
+#   ggtitle("Ovarian score") +
+#   theme(plot.title = element_text(hjust = 0.5))
 
 exp2.phenodata.clean %>% group_by(Rank) %>% 
   summarize(EggsMean = mean(NoEggs),
@@ -789,12 +827,16 @@ exp2.phenodata.clean %>% group_by(Rank) %>%
 
 ## Gene expression results
 
-Let's first get a general idea of the shape of the data by performing PCA on all genes. The results don't tell us all that much- PCs 1 and 2 seem to be weakly structured by individuals' ranks, but there's no obvious clustering. 
+Let's first get a general idea of the shape of the data by performing PCA on the top 100 most highly-variable genes. The results don't tell us all that much- PCs 1 and 2 seem to be weakly structured by individuals' ranks, but there's no obvious clustering. 
 
 ```{r exp2-pca-allgenes}
+treatments_nonewline = c("Rank 1", "Rank 2 (unchanged)", "Rank 2 (control)", "Rank 2 (elevated rank)",
+           "Rank 3 (control)", "Rank 3 (elevated rank)", "Rank 4 (elevated rank)")
+
+
 # log-transform with a pseudocount
-pca.counts = log2(exp2.gene.counts.clean+1)
-#pca.counts = log2(exp2.gene.counts.clean[order(rowVars(exp2.gene.counts.clean),decreasing = T)[1:100],]+1)
+#pca.counts = log2(exp2.gene.counts.clean+1)
+pca.counts = log2(exp2.gene.counts.clean[order(rowVars(exp2.gene.counts.clean),decreasing = T)[1:100],]+1)
 #create pca object
 data.pca = prcomp(t(pca.counts))
 #extract PC data
@@ -807,21 +849,36 @@ ggpcadata = pca.out$values %>%
   left_join(exp2.phenodata.clean,
             by = "WaspID")
 #plot
-ggplot(ggpcadata, aes(x = PC1, y = PC2, color = FinalRank, shape = Treatment, label = WaspID)) +
-  geom_point(size = 5, position = position_jitter(width = 0.5,height=0.5)) +
+gg_exp2_pca_highvar = ggplot(ggpcadata, aes(x = PC1, y = PC2, color = Treatment, shape = Treatment, label = WaspID)) +
+  geom_point(size = 4, position = position_jitter(width = 0.5,height=0.5)) +
   #geom_text(vjust = -1) +
   xlab(paste0("PC",1,": ",signif(pca.out$percent.var[1]*100, 3),"%")) +
   ylab(paste0("PC",2,": ",signif(pca.out$percent.var[2]*100, 3),"%")) +
-  theme_bw() +
-  # scale_color_manual(name = "Treatment",
-  #                    values = brewer.pal(7, "Paired")) +
-  scale_shape_manual(name = "Treatment",
-                     values = c(8,15:20)) +
-  theme(panel.grid = element_line(color = "grey95"),
-        legend.title = element_text(face = "bold"),
-        axis.text.x = element_text(size = 11),
-        axis.text.y = element_text(size = 11),
-        axis.title = element_text(face = "bold", size =12))
+  scale_shape_manual(name = "Rank at removal",
+                     values = c(8,1,2,3,4,5,6), 
+                     labels = treatments_nonewline) +
+  scale_colour_manual(name = "Rank at removal",
+                      values = c("midnightblue",brewer.pal(6, "YlOrRd")[c(6,6,6,5,5,4)]),
+                      labels = treatments_nonewline) +
+  theme_bw() +  
+  theme(aspect.ratio = 1, 
+        legend.text = element_text(size=15),
+        legend.title = element_text(size=15, face = "bold"),
+        plot.title = element_text(size=18, face="bold", hjust = 0.5),
+        axis.text.x = element_text(size=15),
+        axis.text.y = element_text(size=15),
+        axis.title.x = element_text(size=18, face = "bold"),
+        axis.title.y = element_text(size=18, face = "bold"),
+        panel.grid = element_line(size = 0.2, colour = "gray95"),
+        axis.ticks = element_line(size=1),
+        panel.border = element_rect(size=1.5),
+        strip.text.x = element_text(size=15, face = "bold"),
+        strip.background = element_rect(size = 1.5))
+
+plot(gg_exp2_pca_highvar)
+
+ggsave(gg_exp2_pca_highvar, filename = "experiment2_pca.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
+       width = 25, height = 20, units = "cm")
 
 ```
 
@@ -992,17 +1049,21 @@ DEGs[upper.tri(DEGs)] = NA
 
 DEGs_plot = reshape2::melt(DEGs, na.rm = TRUE)
 
-DEGplot_lfc0 = ggplot(data = DEGs_plot, aes(x=Var1, y=Var2, fill=value)) + 
-  geom_tile(color = "black") +
-  geom_text(aes(label=value)) +
+DEGplot_lfc0_finalrank = ggplot(data = DEGs_plot, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile(color = "grey50", size = 0.5) +
+  geom_text(aes(label=value), size = 7, face = "bold") +
   scale_fill_gradient(low = "cornsilk", high = "red", 
-                      limit = c(0,1000), space = "Lab", 
-                      name="Number of differentially\nexpressed genes at lfc = 0") +
+                      limit = c(0,1100), breaks = c(0,1000), space = "Lab", 
+                      name="Number of differentially\nexpressed genes") +
   theme_minimal() + 
-  theme(axis.text.x = element_text(angle = 45, vjust = 1,
-                                   size = 12, hjust = 1),
-        axis.text.y = element_text(size = 12),
-        axis.title = element_blank()) +
+  xlab("Rank") + ylab("Rank") +
+  theme(aspect.ratio = 1,
+        panel.grid = element_line(size = 0.2, colour = "gray80"),
+        axis.text.x = element_text(size = 15),
+        axis.text.y = element_text(size = 15),
+        axis.title = element_text(size = 18),
+        legend.text = element_text(size=12),
+        legend.title = element_text(size=15, face = "bold")) +
   coord_fixed()
 
 #create empty matrix to be populated with between-group comparisons
@@ -1036,20 +1097,26 @@ DEGs[upper.tri(DEGs)] = NA
 
 DEGs_plot = reshape2::melt(DEGs, na.rm = TRUE)
 
-DEGplot_lfc1.5 = ggplot(data = DEGs_plot, aes(x=Var1, y=Var2, fill=value)) + 
-  geom_tile(color = "black") +
-  geom_text(aes(label=value)) +
+DEGplot_lfc1.5_finalrank = ggplot(data = DEGs_plot, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile(color = "grey50", size = 0.5) +
+  geom_text(aes(label=value), size = 7, face = "bold") +
   scale_fill_gradient(low = "cornsilk", high = "red", 
-                      limit = c(0,500), space = "Lab", 
-                      name="Number of differentially\nexpressed genes at\nlfc = log2(1.5)") +
+                      limit = c(0,1100), breaks = c(0,1000), space = "Lab", 
+                      name="Number of differentially\nexpressed genes") +
   theme_minimal() + 
-  theme(axis.text.x = element_text(angle = 45, vjust = 1,
-                                   size = 12, hjust = 1),
-        axis.text.y = element_text(size = 12),
-        axis.title = element_blank()) +
+  xlab("Rank") + ylab("Rank") +
+  theme(aspect.ratio = 1,
+        panel.grid = element_line(size = 0.2, colour = "gray80"),
+        axis.text.x = element_text(size = 15),
+        axis.text.y = element_text(size = 15),
+        axis.title = element_text(size = 18),
+        legend.text = element_text(size=12),
+        legend.title = element_text(size=15, face = "bold")) +
   coord_fixed()
 
-plot(ggarrange(DEGplot_lfc0, DEGplot_lfc1.5, ncol = 1))
+gg_exp2_pairwise_DEGs_finalrank = ggarrange(DEGplot_lfc0_finalrank, DEGplot_lfc1.5_finalrank, ncol = 2, common.legend = T, labels = "AUTO", legend = "top")
+
+gg_exp2_pairwise_DEGs_finalrank
 ```
 Repeat but with original rank rather than final rank:
 
@@ -1104,17 +1171,21 @@ DEGs[upper.tri(DEGs)] = NA
 
 DEGs_plot = reshape2::melt(DEGs, na.rm = TRUE)
 
-DEGplot_lfc0 = ggplot(data = DEGs_plot, aes(x=Var1, y=Var2, fill=value)) + 
-  geom_tile(color = "black") +
-  geom_text(aes(label=value)) +
+DEGplot_lfc0_origrank = ggplot(data = DEGs_plot, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile(color = "grey50", size = 0.5) +
+  geom_text(aes(label=value), size = 7, face = "bold") +
   scale_fill_gradient(low = "cornsilk", high = "red", 
-                      limit = c(0,1000), space = "Lab", 
-                      name="Number of differentially\nexpressed genes at lfc = 0") +
+                      limit = c(0,1100), breaks = c(0,1000), space = "Lab", 
+                      name="Number of differentially\nexpressed genes") +
+  xlab("Rank") + ylab("Rank") +
   theme_minimal() + 
-  theme(axis.text.x = element_text(angle = 45, vjust = 1,
-                                   size = 12, hjust = 1),
-        axis.text.y = element_text(size = 12),
-        axis.title = element_blank()) +
+  theme(aspect.ratio = 1,
+        panel.grid = element_line(size = 0.2, colour = "gray80"),
+        axis.text.x = element_text(size = 15),
+        axis.text.y = element_text(size = 15),
+        axis.title = element_text(size = 18),
+        legend.text = element_text(size=12),
+        legend.title = element_text(size=15, face = "bold")) +
   coord_fixed()
 
 #create empty matrix to be populated with between-group comparisons
@@ -1148,20 +1219,31 @@ DEGs[upper.tri(DEGs)] = NA
 
 DEGs_plot = reshape2::melt(DEGs, na.rm = TRUE)
 
-DEGplot_lfc1.5 = ggplot(data = DEGs_plot, aes(x=Var1, y=Var2, fill=value)) + 
-  geom_tile(color = "black") +
-  geom_text(aes(label=value)) +
+DEGplot_lfc1.5_origrank = ggplot(data = DEGs_plot, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile(color = "grey50", size = 0.5) +
+  geom_text(aes(label=value), size = 7, face = "bold") +
   scale_fill_gradient(low = "cornsilk", high = "red", 
-                      limit = c(0,500), space = "Lab", 
-                      name="Number of differentially\nexpressed genes at\nlfc = log2(1.5)") +
+                      limit = c(0,1100), breaks = c(0,1000), space = "Lab", 
+                      name="Number of differentially\nexpressed genes") +
+  xlab("Rank") + ylab("Rank") +
   theme_minimal() + 
-  theme(axis.text.x = element_text(angle = 45, vjust = 1,
-                                   size = 12, hjust = 1),
-        axis.text.y = element_text(size = 12),
-        axis.title = element_blank()) +
+  theme(aspect.ratio = 1,
+        panel.grid = element_line(size = 0.2, colour = "gray80"),
+        axis.text.x = element_text(size = 15),
+        axis.text.y = element_text(size = 15),
+        axis.title = element_text(size = 18),
+        legend.text = element_text(size=12),
+        legend.title = element_text(size=15, face = "bold")) +
   coord_fixed()
 
-plot(ggarrange(DEGplot_lfc0, DEGplot_lfc1.5, ncol = 1))
+gg_exp2_pairwise_DEGs_origrank = ggarrange(DEGplot_lfc0_origrank, DEGplot_lfc1.5_origrank, ncol = 2, common.legend = T, labels = "AUTO", legend = "top")
+plot(gg_exp2_pairwise_DEGs_origrank)
+
+gg_exp2_pairwise_DEGs_all = ggarrange(DEGplot_lfc0_finalrank, DEGplot_lfc1.5_finalrank, DEGplot_lfc0_origrank, DEGplot_lfc1.5_origrank,
+                                      ncol = 2, nrow = 2, common.legend = T, labels = "AUTO", legend = "top")
+
+ggsave(gg_exp2_pairwise_DEGs_all, filename = "experiment2_pairwise_DEGs.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures",
+       width = 25, height = 27, units = "cm")
 ```
 
 We'll now look to see which genes' expression (if any) are significantly correlated with rank, age and foraging rate when treating those as continuous variables. As rank 1 seems to stand out as being very different to all other treatment groups, we'll try running each analysis both with and without the inclusion of rank 1 individuals. Some key results from this: 
@@ -1626,17 +1708,16 @@ gg_module_pheno = ggplot(data = padjmelt, aes(x = variable, y = modcolor)) +
   geom_tile(aes(fill = value),color = "gray", size=.75, width=1, height = 1) +
   geom_text(aes(label=c(textMatrix)), 
             lineheight = 0.75, size = 3.5) +
-  # scale_x_discrete("Trait",
-  #                  expand = c(0,0),
-  #                  labels = c("Rank\n(before)",
-  #                             "Rank\n(after)",
-  #                             "Nest\nsize",
-  #                             "Time\noff nest",
-  #                             "Number\nof eggs"),
-  #                  position = "top") +
+  scale_x_discrete("Trait",
+                   expand = c(0,0),
+                   labels = c("Time off nest",
+                              "Rank (original)",
+                              "Rank (manipulated)",
+                              "Age"),
+                   position = "top") +
   scale_y_discrete("Module",
                    expand = c(0,0),
-                   #labels = SimpleNames,
+                   labels = SimpleNames,
                    limits = rev(levels(padjmelt$modcolor))) +
   scale_fill_gradientn(colours = colorRampPalette(rev(c("#FFFFFF",brewer.pal(n = 9, name = "Reds")[1:5])),bias=6)(20),
                        breaks = c(0.0,0.05,1),
@@ -1652,8 +1733,10 @@ gg_module_pheno = ggplot(data = padjmelt, aes(x = variable, y = modcolor)) +
   theme(panel.grid = element_blank(),
         legend.title = element_text(face = "bold"),
         axis.text = element_text(face = "bold",size =11, color = "grey40"),
-        axis.title = element_text(face = "bold", size =12),
-        axis.title.x = element_blank())
+        axis.title = element_text(face = "bold", size =12))
+
+ggsave(gg_module_pheno, filename = "experiment2_modules.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
+       width = 25, height = 18, units = "cm")
 
 ```
 ```{r testmodule}
@@ -1691,6 +1774,41 @@ verboseScatterplot(abs(geneModuleMembership[moduleGenes, column]),
                    main = paste("Module membership vs. gene significance\n"),
                    cex.main = 1.2, cex.lab = 1.2, cex.axis = 1.2, col = module)
 
+# replot for saving
+darkturquoiseframe = data.frame(membership = abs(geneModuleMembership[moduleGenes, column]),
+                        significance = abs(geneTraitSignificance[moduleGenes, 1]))
+
+darkturquoisecor = cor.test(darkturquoiseframe$membership, darkturquoiseframe$significance, method = "pearson", conf.level = 0.95)
+darkturquoisecortext = paste0("cor=", round(darkturquoisecor$estimate,2), ", p=", formatC(darkturquoisecor$p.value, format = "e", digits = 2))
+
+gg_exp2_darkturquoisecor = ggplot(data = darkturquoiseframe, aes(x = membership, y = significance)) +
+  geom_point(size = 3, alpha = 0.7) +
+  geom_smooth(method="lm") +
+  xlab("Module Membership") +
+  ylab("Gene significance for time off nest")+
+  annotate(geom="text", x=0.87, y=0, label=darkturquoisecortext,
+              color="red", size = 6) +
+  theme_bw() +
+  theme(aspect.ratio = 2/3, 
+        legend.text = element_text(size=15),
+        legend.title = element_text(size=15, face = "bold"),
+        plot.title = element_text(size=18, face="bold", hjust = 0.5),
+        axis.text.x = element_text(size=15),
+        axis.text.y = element_text(size=15),
+        axis.title.x = element_text(size=18, face = "bold"),
+        axis.title.y = element_text(size=18, face = "bold"),
+        panel.grid = element_line(size = 0.2, colour = "gray95"),
+        axis.ticks = element_line(size=1),
+        panel.border = element_rect(size=1.5),
+        strip.text.x = element_text(size=15, face = "bold"),
+        strip.background = element_rect(size = 1.5))
+
+gg_exp2_darkturquoisecor
+
+ggsave(gg_exp2_darkturquoisecor, filename = "experiment2_darkturquoise_module_significance.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
+       width = 27, height = 18, units = "cm")
+
+
 
 # look at gene weights within module together with those gene's correlation with OffNestFinal
 module = "green" #yes, cor = 0.41
@@ -1701,11 +1819,43 @@ par(mfrow = c(1,1));
 verboseScatterplot(abs(geneModuleMembership[moduleGenes, column]),
                    abs(geneTraitSignificance[moduleGenes, 1]),
                    xlab = paste("Module Membership in", module, "module"),
-                   ylab = "Gene significance for foraging rate",
+                   ylab = "Gene significance for time off nest",
                    main = paste("Module membership vs. gene significance\n"),
                    cex.main = 1.2, cex.lab = 1.2, cex.axis = 1.2, col = module)
 
-# turqGenes = row.names(exp2.gene.count.clean.normalize)[moduleGenes]
+# replot for saving
+greenframe = data.frame(membership = abs(geneModuleMembership[moduleGenes, column]),
+                        significance = abs(geneTraitSignificance[moduleGenes, 1]))
+
+greencor = cor.test(greenframe$membership, greenframe$significance, method = "pearson", conf.level = 0.95)
+greencortext = paste0("cor=", round(greencor$estimate,2), ", p=", formatC(greencor$p.value, format = "e", digits = 2))
+
+gg_exp2_greencor = ggplot(data = greenframe, aes(x = membership, y = significance)) +
+  geom_point(size = 3, alpha = 0.7) +
+  geom_smooth(method="lm") +
+  xlab("Module Membership") +
+  ylab("Gene significance for time off nest")+
+  annotate(geom="text", x=0.87, y=0, label=greencortext,
+              color="red", size = 6) +
+  theme_bw() +
+  theme(aspect.ratio = 2/3, 
+        legend.text = element_text(size=15),
+        legend.title = element_text(size=15, face = "bold"),
+        plot.title = element_text(size=18, face="bold", hjust = 0.5),
+        axis.text.x = element_text(size=15),
+        axis.text.y = element_text(size=15),
+        axis.title.x = element_text(size=18, face = "bold"),
+        axis.title.y = element_text(size=18, face = "bold"),
+        panel.grid = element_line(size = 0.2, colour = "gray95"),
+        axis.ticks = element_line(size=1),
+        panel.border = element_rect(size=1.5),
+        strip.text.x = element_text(size=15, face = "bold"),
+        strip.background = element_rect(size = 1.5))
+
+gg_exp2_greencor
+
+ggsave(gg_exp2_greencor, filename = "experiment2_green_module_significance.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
+       width = 27, height = 18, units = "cm")
 ```
 
 Looking at the GO terms associated with these two modules: darkturquoise is associated with a smaller set of terms, with an emphasis on sensory processes, while green is associated with a larger set of terms that include biosynthetic and respiratory processes. 
