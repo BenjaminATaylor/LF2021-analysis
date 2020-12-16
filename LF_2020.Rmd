@@ -2240,6 +2240,11 @@ upChars = c("genes_up_exp1_labour",
            "genes_up_exp2_antiforaging",
            "genes_up_Pdom_caste_LF")
 
+upLabels = c("Experiment 1\nReproductives",
+             "Experiment 2\nReproductives",
+             "Time on Nest",
+             "Polistes dominula\nqueens")
+
 # get all contrasts
 contrasts = t(combn(upChars, 2))
 
@@ -2280,7 +2285,9 @@ comps[upper.tri(comps)] = round(p.adjust(comps[upper.tri(comps)], method = "BH")
 
 # melt and plot
 comps_plot = reshape2::melt(comps, na.rm = TRUE)
-ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value)) + 
+gg_exp2_upDEG_overlaps = ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value)) + 
+  scale_x_discrete(labels = upLabels) +
+  scale_y_discrete(labels = upLabels) +
   geom_tile(color = "black") +
   geom_text(aes(label=value),
             nudge_y = 0.05, fontface = 2) +
@@ -2290,7 +2297,7 @@ ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value)) +
                        breaks = c(0.0,0.05,1),
                        expand = c(0,0),
                        limits = c(0,1),
-                       guide = guide_colourbar(barheight = 25,
+                       guide = guide_colourbar(barheight = 20,
                                                #title = "p-value\n(adjusted)",
                                                title = "p-value\n(adjusted)",
                                                title.vjust = 2,
@@ -2303,6 +2310,8 @@ ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value)) +
         axis.title = element_blank()) +
   coord_fixed()
 
+ggsave(gg_exp2_upDEG_overlaps, filename = "experiment2_direct_fitness_DEG_overlap.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
+       width = 20, height = 20, units = "cm")
 ```
 
 And likewise for the GO terms associated with these groups:
@@ -2313,6 +2322,11 @@ upGOChars = c("GO_up_exp1_labour",
                 "GO_up_exp2_rank",
                 "GO_up_exp2_antiforaging",
                 "GO_up_Pdom_caste")
+
+upLabels = c("Experiment 1\nReproductives",
+             "Experiment 2\nReproductives",
+             "Time on Nest",
+             "Polistes dominula\nqueens")
 
 #get all combinations of contrasts
 contrasts = t(combn(upGOChars, 2))
@@ -2356,17 +2370,19 @@ comps[upper.tri(comps)] = round(p.adjust(comps[upper.tri(comps)], method = "bonf
 
 # melt and plot
 comps_plot = reshape2::melt(comps, na.rm = TRUE)
-ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value)) + 
+gg_exp2_upGO_overlaps = ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value)) +
   geom_tile(color = "black") +
   geom_text(aes(label=value),
             nudge_y = 0.05, fontface = 2) +
   geom_text(aes(label=na.omit(c(labs))),
             nudge_y = -0.15, size = 3) +
+  scale_x_discrete(labels = upLabels) +
+  scale_y_discrete(labels = upLabels) +
   scale_fill_gradientn(colours = colorRampPalette(rev(c("#FFFFFF",brewer.pal(n = 9, name = "Reds")[1:5])),bias=6)(20),
                        breaks = c(0.0,0.05,1),
                        expand = c(0,0),
                        limits = c(0,1),
-                       guide = guide_colourbar(barheight = 25,
+                       guide = guide_colourbar(barheight  = 20,
                                                #title = "p-value\n(adjusted)",
                                                title = "p-value\n(adjusted)",
                                                title.vjust = 2,
@@ -2379,6 +2395,13 @@ ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value)) +
         axis.title = element_blank()) +
   coord_fixed()
 
+ggsave(gg_exp2_upGO_overlaps, filename = "experiment2_direct_fitness_GO_overlap.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
+       width = 20, height = 20, units = "cm")
+
+gg_exp2_up_overlaps = ggarrange(gg_exp2_upDEG_overlaps, gg_exp2_upGO_overlaps, ncol = 2, common.legend = T, legend = "right", labels = "AUTO")
+
+ggsave(gg_exp2_up_overlaps, filename = "experiment2_direct_fitness_all_overlap.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
+       width = 30, height = 14, units = "cm")
 ```
 
 All gene lists that are putatively indirect fitness-biased:
@@ -2389,6 +2412,11 @@ downChars = c("genes_down_exp1_labour",
             "genes_down_exp2_rank",
             "genes_down_exp2_antiforaging",
             "genes_down_Pdom_caste_LF")
+
+downLabels = c("Experiment 1\nSubordinates",
+             "Experiment 2\nSubordinates",
+             "Time off Nest",
+             "Polistes dominula\nWorkers")
 
 # get all contrasts
 contrasts = t(combn(downChars, 2))
@@ -2430,17 +2458,19 @@ comps[upper.tri(comps)] = round(p.adjust(comps[upper.tri(comps)], method = "BH")
 
 # melt and plot
 comps_plot = reshape2::melt(comps, na.rm = TRUE)
-ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value)) + 
+gg_exp2_downDEG_overlaps = ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value)) + 
   geom_tile(color = "black") +
   geom_text(aes(label=value),
             nudge_y = 0.05, fontface = 2) +
   geom_text(aes(label=na.omit(c(labs))),
             nudge_y = -0.15, size = 3) +
+  scale_x_discrete(labels = downLabels) +
+  scale_y_discrete(labels = downLabels) +
   scale_fill_gradientn(colours = colorRampPalette(rev(c("#FFFFFF",brewer.pal(n = 9, name = "Reds")[1:5])),bias=6)(20),
                        breaks = c(0.0,0.05,1),
                        expand = c(0,0),
                        limits = c(0,1),
-                       guide = guide_colourbar(barheight = 25,
+                       guide = guide_colourbar(barheight = 20,
                                                #title = "p-value\n(adjusted)",
                                                title = "p-value\n(adjusted)",
                                                title.vjust = 2,
@@ -2452,6 +2482,7 @@ ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value)) +
         axis.text.y = element_text(size = 12),
         axis.title = element_blank()) +
   coord_fixed()
+
 ```
 
 And likewise for the GO terms associated with these groups:
@@ -2505,17 +2536,19 @@ comps[upper.tri(comps)] = round(p.adjust(comps[upper.tri(comps)], method = "bonf
 
 # melt and plot
 comps_plot = reshape2::melt(comps, na.rm = TRUE)
-ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value)) + 
+gg_exp2_downGO_overlaps = ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value)) + 
   geom_tile(color = "black") +
   geom_text(aes(label=value),
             nudge_y = 0.05, fontface = 2) +
   geom_text(aes(label=na.omit(c(labs))),
             nudge_y = -0.15, size = 3) +
+  scale_x_discrete(labels = downLabels) +
+  scale_y_discrete(labels = downLabels) +
   scale_fill_gradientn(colours = colorRampPalette(rev(c("#FFFFFF",brewer.pal(n = 9, name = "Reds")[1:5])),bias=6)(20),
                        breaks = c(0.0,0.05,1),
                        expand = c(0,0),
                        limits = c(0,1),
-                       guide = guide_colourbar(barheight = 25,
+                       guide = guide_colourbar(barheight = 20,
                                                #title = "p-value\n(adjusted)",
                                                title = "p-value\n(adjusted)",
                                                title.vjust = 2,
@@ -2527,5 +2560,10 @@ ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value)) +
         axis.text.y = element_text(size = 12),
         axis.title = element_blank()) +
   coord_fixed()
+
+gg_exp2_down_overlaps = ggarrange(gg_exp2_downDEG_overlaps, gg_exp2_downGO_overlaps, ncol = 2, common.legend = T, legend = "right", labels = "AUTO")
+
+ggsave(gg_exp2_down_overlaps, filename = "experiment2_indirect_fitness_all_overlap.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
+       width = 30, height = 14, units = "cm")
 ```
 
