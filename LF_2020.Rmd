@@ -25,7 +25,9 @@ basic_libraries <- c("ggpubr",
                      "WGCNA",
                      "limma",
                      "ggforce",
-                     "ggrepel")
+                     "ggrepel",
+                     "ggbeeswarm",
+                     "reshape2")
 
 for (lib in basic_libraries) {
         if (require(package = lib, character.only = TRUE)) {
