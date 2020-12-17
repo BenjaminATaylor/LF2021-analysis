@@ -23,6 +23,8 @@ GO_treeplots = function(GOframe, path){
                                                    ont="BP",
                                                    method="Rel"))
   scores <- setNames(-log10(as.numeric(GOframe$consolidated_result$result)), GOframe$consolidated_result$GO.ID)
+  if(length(simMatrix)<2){print("Insufficient GO terms for plotting in ontology: BP")
+  } else {
   reducedTerms <- reduceSimMatrix(simMatrix,
                                   scores,
                                   threshold=0.9,
@@ -36,6 +38,7 @@ GO_treeplots = function(GOframe, path){
                                     bg.labels = 20, overlap.labels = 0.5,
                                     border.col = "#00000080", 
                                     vp = vp, vsize = 1/3, aspRatio = 1))
+  }
   
   #MF
   simMatrix <- suppressWarnings(calculateSimMatrix(GOframe$consolidated_result$GO.ID,
@@ -43,6 +46,8 @@ GO_treeplots = function(GOframe, path){
                                                    ont="MF",
                                                    method="Rel"))
   scores <- setNames(-log10(as.numeric(GOframe$consolidated_result$result)), GOframe$consolidated_result$GO.ID)
+  if(length(simMatrix)<2){print("Insufficient GO terms for plotting in ontology: MF")
+  } else {
   reducedTerms <- reduceSimMatrix(simMatrix,
                                   scores,
                                   threshold=0.9,
@@ -56,6 +61,7 @@ GO_treeplots = function(GOframe, path){
                                     bg.labels = 20, overlap.labels = 0.5,
                                     border.col = "#00000080", 
                                     vp = vp, vsize = 1/3, aspRatio = 1))
+  }
   
   #CC
   simMatrix <- suppressWarnings(calculateSimMatrix(GOframe$consolidated_result$GO.ID,
@@ -63,10 +69,13 @@ GO_treeplots = function(GOframe, path){
                                                    ont="CC",
                                                    method="Rel"))
   scores <- setNames(-log10(as.numeric(GOframe$consolidated_result$result)), GOframe$consolidated_result$GO.ID)
+  if(length(simMatrix)<2){print("Insufficient GO terms for plotting in ontology: CC")
+    } else {
   reducedTerms <- reduceSimMatrix(simMatrix,
                                   scores,
                                   threshold=0.9,
                                   orgdb="org.Dm.eg.db")
+    
   vp <- viewport(layout.pos.col=3, layout.pos.row=1)
   suppressWarnings(treemap::treemap(reducedTerms, index = c("parentTerm", "term"),  
                                     vSize = "score", type = "index", 
@@ -76,7 +85,7 @@ GO_treeplots = function(GOframe, path){
                                     bg.labels = 20, overlap.labels = 0.5,
                                     border.col = "#00000080", 
                                     vp = vp, vsize = 1/3, aspRatio = 1))
-  
+    }
   dev.off()
   
 }
