@@ -50,6 +50,8 @@ exp1.gene.counts = read.delim("/home/benjamin/Documents/LF_2020_repo/Data_Experi
 #import functions
 source("/home/benjamin/Documents/LF_2020_repo/Functions/topGO_wrapper.R")
 source("/home/benjamin/Documents/LF_2020_repo/Functions/DESeq_wrapper.R")
+source("/home/benjamin/Documents/LF_2020_repo/Functions/GO_treeplots.R")
+
 #import gene ontology mapping
 load("/home/benjamin/Documents/LF_2020_repo/Genomic/GOmapping_LF.Rdata")
 
@@ -600,6 +602,11 @@ labourGO_up = topGO_wrapper(geneScores = GOscores.labour_up,
                          nodeSize = 10,
                          discretisedDE = F,
                          p = 0.01)
+#save results
+GO_treeplots(labourGO_up, path = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures/experiment1_labour_up_GO_plots.png")
+write.csv(labourGO_up$consolidated_result, 
+          file = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/tables/experiment1_labour_up_GO.csv", row.names = F)
+
 GOverlap_up = gene_overlap(Pdom_SVM_GOup$GO.ID, labourGO_up$consolidated_result$GO.ID, allGO)
 print(paste0("GO terms enriched among SVM genes upregulated in Polistes dominula queens (p<0.05): ", nrow(Pdom_SVM_GOup)))
 print(paste0("GO terms enriched among genes upregulated in L flavolineata reproductives (p<0.01): ", nrow(labourGO_up$consolidated_result)))
@@ -619,6 +626,12 @@ labourGO_down = topGO_wrapper(geneScores = GOscores.labour_down,
                          nodeSize = 10,
                          discretisedDE = F,
                          p = 0.01)
+
+#save results
+GO_treeplots(labourGO_down, path = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures/experiment1_labour_down_GO_plots.png")
+write.csv(labourGO_down$consolidated_result, 
+          file = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/tables/experiment1_labour_down_GO.csv", row.names = F)
+
 GOverlap_down = gene_overlap(Pdom_SVM_GOdown$GO.ID, labourGO_down$consolidated_result$GO.ID, allGO)
 print(paste0("GO terms enriched among SVM genes upregulated in Polistes dominula queens (p<0.05): ", nrow(Pdom_SVM_GOdown)))
 print(paste0("GO terms enriched among genes upregulated in L flavolineata foragers (p<0.01): ", nrow(labourGO_down$consolidated_result)))
@@ -1415,6 +1428,11 @@ foragingGO_up =  topGO_wrapper(geneScores = offNestDEGs_forGO$OffNestFinal,
                             nodeSize = 10,
                             discretisedDE = T,
                             p = 0.01)
+
+#save plots and table
+GO_treeplots(foragingGO_up, path = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures/experiment2_foraging_up_GO_plots.png")
+write.csv(foragingGO_up$consolidated_result, 
+          file = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/tables/experiment2_foraging_up_GO.csv", row.names = F)
   
 print(paste0("GO terms enriched among genes upregulated with foraging rate at p<0.01: ", nrow(foragingGO_up$consolidated_result)))
 
@@ -1458,6 +1476,11 @@ foragingGO_down =  topGO_wrapper(geneScores = offNestDEGs_forGO$OffNestFinal,
                             nodeSize = 10,
                             discretisedDE = T,
                             p = 0.01)
+
+#save plots and table
+GO_treeplots(foragingGO_down, path = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures/experiment2_foraging_down_GO_plots.png")
+write.csv(foragingGO_down$consolidated_result, 
+          file = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/tables/experiment2_foraging_down_GO.csv", row.names = F)
   
 print(paste0("GO terms enriched among genes downregulated with foraging rate at p<0.01: ", nrow(foragingGO_down$consolidated_result)))
 
@@ -1874,6 +1897,10 @@ darkturquoiseGO = topGO_wrapper(geneScores = GOscores.darkturquoise,
                              discretisedDE = F,
                              p = 0.01)
 #darkturquoiseGO$consolidated_result #18 terms: visual perception, feeding
+#save results
+GO_treeplots(darkturquoiseGO, path = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures/experiment2_darkturquoise_GO_plots.png")
+write.csv(darkturquoiseGO$consolidated_result, 
+          file = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/tables/experiment2_darkturquoise_GO.csv", row.names = F)
 
 GOscores.green = as.numeric(moduleColors=="green") %>% 'names<-'(row.names(exp2.gene.count.clean.normalize))
 greenGO = topGO_wrapper(geneScores = GOscores.green,
@@ -1886,6 +1913,9 @@ greenGO = topGO_wrapper(geneScores = GOscores.green,
                         discretisedDE = F,
                         p = 0.01)
 #greenGO$consolidated_result #90 terms: 
+GO_treeplots(greenGO, path = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures/experiment2_green_GO_plots.png")
+write.csv(greenGO$consolidated_result, 
+          file = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/tables/experiment2_green_GO.csv", row.names = F)
 
 gene_overlap(greenGO$consolidated_result$GO.ID, Pdom_SVM_GO$GO.ID, allGO) # significant
 gene_overlap(greenGO$consolidated_result$GO.ID, labourGO$consolidated_result$GO.ID, allGO) # very significant
@@ -2078,7 +2108,7 @@ genes_down_exp2_rank = genes_exp2_rank$Rank....1TRUE %>% subset(padj<0.05 & log2
 
 # upregulated GO terms
 GOscores_up_exp2_rank = as.numeric(row.names(exp2.gene.counts.clean) %in% genes_up_exp2_rank) %>% 'names<-'(row.names(exp2.gene.counts.clean))
-GO_up_exp2_rank = topGO_wrapper(geneScores = GOscores_up_exp2_rank,
+GO_up_exp2_rank_full = topGO_wrapper(geneScores = GOscores_up_exp2_rank,
                                   geneScoresDE = F,
                                   geneScoresDirection = NA,
                                   GOmapping = GOmapping_LF,
@@ -2086,11 +2116,19 @@ GO_up_exp2_rank = topGO_wrapper(geneScores = GOscores_up_exp2_rank,
                                   statistic = "fisher",
                                   nodeSize = 10,
                                   discretisedDE = F,
-                                  p = 0.01) %>% .$consolidated_result %>% .$GO.ID
+                                  p = 0.01) 
+#save results
+GO_treeplots(GO_up_exp2_rank_full, path = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures/experiment2_rank_up_GO_plots.png")
+write.csv(GO_up_exp2_rank_full$consolidated_result, 
+          file = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/tables/experiment2_rank_up_GO.csv", row.names = F)
+
+GO_up_exp2_rank = GO_up_exp2_rank_full %>% .$consolidated_result %>% .$GO.ID
+
+
 
 # downregulated GO terms
 GOscores_down_exp2_rank = as.numeric(row.names(exp2.gene.counts.clean) %in% genes_down_exp2_rank) %>% 'names<-'(row.names(exp2.gene.counts.clean))
-GO_down_exp2_rank = topGO_wrapper(geneScores = GOscores_down_exp2_rank,
+GO_down_exp2_rank_full = topGO_wrapper(geneScores = GOscores_down_exp2_rank,
                                     geneScoresDE = F,
                                     geneScoresDirection = NA,
                                     GOmapping = GOmapping_LF,
@@ -2098,9 +2136,13 @@ GO_down_exp2_rank = topGO_wrapper(geneScores = GOscores_down_exp2_rank,
                                     statistic = "fisher",
                                     nodeSize = 10,
                                     discretisedDE = F,
-                                    p = 0.01) %>% .$consolidated_result %>% .$GO.ID
+                                    p = 0.01)
+#save results
+GO_treeplots(GO_down_exp2_rank_full, path = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures/experiment2_rank_down_GO_plots.png")
+write.csv(GO_down_exp2_rank_full$consolidated_result, 
+          file = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/tables/experiment2_rank_down_GO.csv", row.names = F)
 
-
+GO_down_exp2_rank = GO_down_exp2_rank %>% .$consolidated_result %>% .$GO.ID
 
 ## Experiment 2: foraging rate
 genes_exp2_foraging = DESeq_wrap(data = exp2.phenodata.clean.no1,
