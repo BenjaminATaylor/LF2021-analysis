@@ -603,7 +603,7 @@ labourGO_up = topGO_wrapper(geneScores = GOscores.labour_up,
                          discretisedDE = F,
                          p = 0.01)
 #save results
-GO_treeplots(labourGO_up, path = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures/experiment1_labour_up_GO_plots.png")
+GO_treeplots(labourGO_up, path = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures/supplementary_figures/experiment1_labour_up_GO_plots.png")
 write.csv(labourGO_up$consolidated_result, 
           file = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/tables/experiment1_labour_up_GO.csv", row.names = F)
 
@@ -628,7 +628,7 @@ labourGO_down = topGO_wrapper(geneScores = GOscores.labour_down,
                          p = 0.01)
 
 #save results
-GO_treeplots(labourGO_down, path = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures/experiment1_labour_down_GO_plots.png")
+GO_treeplots(labourGO_down, path = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures/supplementary_figures/experiment1_labour_down_GO_plots.png")
 write.csv(labourGO_down$consolidated_result, 
           file = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/tables/experiment1_labour_down_GO.csv", row.names = F)
 
@@ -1430,7 +1430,7 @@ foragingGO_up =  topGO_wrapper(geneScores = offNestDEGs_forGO$OffNestFinal,
                             p = 0.01)
 
 #save plots and table
-GO_treeplots(foragingGO_up, path = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures/experiment2_foraging_up_GO_plots.png")
+GO_treeplots(foragingGO_up, path = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures/supplementary_figures/experiment2_foraging_up_GO_plots.png")
 write.csv(foragingGO_up$consolidated_result, 
           file = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/tables/experiment2_foraging_up_GO.csv", row.names = F)
   
@@ -1478,7 +1478,7 @@ foragingGO_down =  topGO_wrapper(geneScores = offNestDEGs_forGO$OffNestFinal,
                             p = 0.01)
 
 #save plots and table
-GO_treeplots(foragingGO_down, path = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures/experiment2_foraging_down_GO_plots.png")
+GO_treeplots(foragingGO_down, path = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures/supplementary_figures/experiment2_foraging_down_GO_plots.png")
 write.csv(foragingGO_down$consolidated_result, 
           file = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/tables/experiment2_foraging_down_GO.csv", row.names = F)
   
@@ -1898,7 +1898,7 @@ darkturquoiseGO = topGO_wrapper(geneScores = GOscores.darkturquoise,
                              p = 0.01)
 #darkturquoiseGO$consolidated_result #18 terms: visual perception, feeding
 #save results
-GO_treeplots(darkturquoiseGO, path = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures/experiment2_darkturquoise_GO_plots.png")
+GO_treeplots(darkturquoiseGO, path = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures/supplementary_figures/experiment2_darkturquoise_GO_plots.png")
 write.csv(darkturquoiseGO$consolidated_result, 
           file = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/tables/experiment2_darkturquoise_GO.csv", row.names = F)
 
@@ -1913,7 +1913,7 @@ greenGO = topGO_wrapper(geneScores = GOscores.green,
                         discretisedDE = F,
                         p = 0.01)
 #greenGO$consolidated_result #90 terms: 
-GO_treeplots(greenGO, path = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures/experiment2_green_GO_plots.png")
+GO_treeplots(greenGO, path = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures/supplementary_figures/experiment2_green_GO_plots.png")
 write.csv(greenGO$consolidated_result, 
           file = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/tables/experiment2_green_GO.csv", row.names = F)
 
@@ -2118,7 +2118,7 @@ GO_up_exp2_rank_full = topGO_wrapper(geneScores = GOscores_up_exp2_rank,
                                   discretisedDE = F,
                                   p = 0.01) 
 #save results
-GO_treeplots(GO_up_exp2_rank_full, path = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures/experiment2_rank_up_GO_plots.png")
+GO_treeplots(GO_up_exp2_rank_full, path = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures/supplementary_figures/experiment2_rank_up_GO_plots.png")
 write.csv(GO_up_exp2_rank_full$consolidated_result, 
           file = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/tables/experiment2_rank_up_GO.csv", row.names = F)
 
@@ -2138,7 +2138,7 @@ GO_down_exp2_rank_full = topGO_wrapper(geneScores = GOscores_down_exp2_rank,
                                     discretisedDE = F,
                                     p = 0.01)
 #save results
-GO_treeplots(GO_down_exp2_rank_full, path = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures/experiment2_rank_down_GO_plots.png")
+GO_treeplots(GO_down_exp2_rank_full, path = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures/supplementary_figures/experiment2_rank_down_GO_plots.png")
 write.csv(GO_down_exp2_rank_full$consolidated_result, 
           file = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/tables/experiment2_rank_down_GO.csv", row.names = F)
 
