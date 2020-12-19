@@ -492,6 +492,38 @@ cohort.additive = DESeq_wrap(data = exp1.phenodata.clean.test,
                              formula = "~ social + reproductive",
                              detail = T)
 
+#save results table for reproductives up
+cohort.additive$reproductiveTRUE %>% 
+  #extract upregulated/downregulated genes
+  subset(padj<0.05 & log2FoldChange>0) %>% 
+  #tidy for saving
+  as.data.frame() %>% rownames_to_column(var = "feature") %>% 
+  #select columns to save
+  dplyr::select(c("feature","baseMean","log2FoldChange","lfcSE","stat","pvalue","padj")) %>%
+  #truncate values
+  mutate_at(c("log2FoldChange","lfcSE","stat","pvalue","padj"), function(x) formatC(x, digits = 6, format = "f")) %>%
+  mutate(baseMean = formatC(baseMean, digits = 2, format = "f")) %>%
+  #rename columns for thesis/paper 
+  'colnames<-'(c("GeneID","BaseMean","Log2FC","LFCSE","Stat","pvalue","padjusted")) %>%
+  #save
+  write.csv(file = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/tables/DESeq2_exp1_reproductive_up.csv", row.names = F)
+
+#save results table for reproductives down
+cohort.additive$reproductiveTRUE %>% 
+  #extract upregulated/downregulated genes
+  subset(padj<0.05 & log2FoldChange<0) %>% 
+  #tidy for saving
+  as.data.frame() %>% rownames_to_column(var = "feature") %>% 
+  #select columns to save
+  dplyr::select(c("feature","baseMean","log2FoldChange","lfcSE","stat","pvalue","padj")) %>%
+  #truncate values
+  mutate_at(c("log2FoldChange","lfcSE","stat","pvalue","padj"), function(x) formatC(x, digits = 6, format = "f")) %>%
+  mutate(baseMean = formatC(baseMean, digits = 2, format = "f")) %>%
+  #rename columns for thesis/paper 
+  'colnames<-'(c("GeneID","BaseMean","Log2FC","LFCSE","Stat","pvalue","padjusted")) %>%
+  #save
+  write.csv(file = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/tables/DESeq2_exp1_reproductive_down.csv", row.names = F)
+
 ```
 
 Which GO terms are associated with the set of genes that are differentially expressed between foragers and egglayers? A large number of GO terms are associated with this comparison, of which the most highly-enriched seem to be associated with respiration/energetic processes:
@@ -499,6 +531,7 @@ Which GO terms are associated with the set of genes that are differentially expr
 ```{r exp1-cohort-topGO}
 labourDEGs = cohort.additive$reproductiveTRUE %>% subset(padj<0.05) %>% row.names()
 GOscores.labour = as.numeric(row.names(exp1.gene.counts.clean) %in% labourDEGs) %>% 'names<-'(row.names(exp1.gene.counts.clean))
+
 
 labourGO = topGO_wrapper(geneScores = GOscores.labour,
                          geneScoresDE = F,
@@ -720,8 +753,8 @@ gg_exp2_foragingbefore = ggplot(exp2.phenodata.clean, aes(x = as.factor(Rank), y
         strip.text.x = element_text(size=15, face = "bold"),
         strip.background = element_rect(size = 1.5))
 
-ggsave(gg_exp2_foragingbefore, filename = "experiment2_foraging_original.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
-       width = 25, height = 20, units = "cm")
+# ggsave(gg_exp2_foragingbefore, filename = "experiment2_foraging_original.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
+#        width = 25, height = 20, units = "cm")
 
 print("Relationship between rank and foraging rate prior to manipulation:")
 #the relationship is highly significant
@@ -782,8 +815,13 @@ gg_exp2_foragingchange = ggplot(subset(exp2.phenodata.clean,Control==F), aes(x =
 
 plot(gg_exp2_foragingchange)
 
-ggsave(gg_exp2_foragingchange, filename = "experiment2_foraging_change.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
-       width = 25, height = 20, units = "cm")
+# ggsave(gg_exp2_foragingchange, filename = "experiment2_foraging_change.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
+#        width = 25, height = 20, units = "cm")
+
+gg_exp2_foraging_combined = ggarrange(gg_exp2_foragingbefore, gg_exp2_foragingchange, labels = "AUTO", ncol = 2)
+
+ggsave(gg_exp2_foraging_combined, filename = "experiment2_foraging_before_and_change.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
+       width = 45, height = 20, units = "cm")
 
 #does time off nest shift for individuals that increase in rank?
 mean(na.omit(exp2.phenodata.clean$OffNestChange[which(exp2.phenodata.clean$RankChange==T)]))
@@ -1327,6 +1365,43 @@ data.frame("Trait" = c("Original rank", "Final rank", "Foraging rate", "Age"),
            "DEG_all" = c(length(originalRankDEGs),length(finalRankDEGs),length(offNestDEGs),NA),
            "DEGs_noRank1" = c(length(originalRankDEGs_no1),length(finalRankDEGs_no1),length(offNestDEGs_no1),length(ageDEGs_no1)))
 
+
+offNestDEGs_no1_full = DESeq_wrap(data = exp2.phenodata.clean.no1,
+                                  genes = exp2.gene.counts.clean.no1,
+                                  formula = "~ OffNestFinal",
+                                  detail = T) 
+
+#save results table for foraging up
+offNestDEGs_no1_full$OffNestFinal %>% 
+  #extract upregulated/downregulated genes
+  subset(padj<0.05 & log2FoldChange>0) %>% 
+  #tidy for saving
+  as.data.frame() %>% rownames_to_column(var = "feature") %>% 
+  #select columns to save
+  dplyr::select(c("feature","baseMean","log2FoldChange","lfcSE","stat","pvalue","padj")) %>%
+  #truncate values
+  mutate_at(c("log2FoldChange","lfcSE","stat","pvalue","padj"), function(x) formatC(x, digits = 6, format = "f")) %>%
+  mutate(baseMean = formatC(baseMean, digits = 2, format = "f")) %>%
+  #rename columns for thesis/paper 
+  'colnames<-'(c("GeneID","BaseMean","Log2FC","LFCSE","Stat","pvalue","padjusted")) %>%
+  #save
+  write.csv(file = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/tables/DESeq2_exp2_foraging_up.csv", row.names = F)
+
+#save results table for foraging down
+offNestDEGs_no1_full$OffNestFinal %>% 
+  #extract upregulated/downregulated genes
+  subset(padj<0.05 & log2FoldChange<0) %>% 
+  #tidy for saving
+  as.data.frame() %>% rownames_to_column(var = "feature") %>% 
+  #select columns to save
+  dplyr::select(c("feature","baseMean","log2FoldChange","lfcSE","stat","pvalue","padj")) %>%
+  #truncate values
+  mutate_at(c("log2FoldChange","lfcSE","stat","pvalue","padj"), function(x) formatC(x, digits = 6, format = "f")) %>%
+  mutate(baseMean = formatC(baseMean, digits = 2, format = "f")) %>%
+  #rename columns for thesis/paper 
+  'colnames<-'(c("GeneID","BaseMean","Log2FC","LFCSE","Stat","pvalue","padjusted")) %>%
+  #save
+  write.csv(file = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/tables/DESeq2_exp2_foraging_down.csv", row.names = F)
 ```
 
 * It's also worth noting that the genetic signature of rank seems to be entirely subsumed by foraging rate- when we take the residuals of rank on foraging rate and combine these with foraging rate in an additive model, we find no DEGs with the residuals. By contrast, an additive model with Rank and (ForagingRate~Rank)$residuals as the factors identifies ~20 genes whose expression is correlated with the residuals. 
@@ -1830,8 +1905,8 @@ gg_exp2_darkturquoisecor = ggplot(data = darkturquoiseframe, aes(x = membership,
 
 gg_exp2_darkturquoisecor
 
-ggsave(gg_exp2_darkturquoisecor, filename = "experiment2_darkturquoise_module_significance.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
-       width = 27, height = 18, units = "cm")
+# ggsave(gg_exp2_darkturquoisecor, filename = "experiment2_darkturquoise_module_significance.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
+#        width = 27, height = 18, units = "cm")
 
 
 
@@ -1879,8 +1954,13 @@ gg_exp2_greencor = ggplot(data = greenframe, aes(x = membership, y = significanc
 
 gg_exp2_greencor
 
-ggsave(gg_exp2_greencor, filename = "experiment2_green_module_significance.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
-       width = 27, height = 18, units = "cm")
+# ggsave(gg_exp2_greencor, filename = "experiment2_green_module_significance.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
+#        width = 27, height = 18, units = "cm")
+
+gg_exp2_combinedcors = ggarrange(gg_exp2_darkturquoisecor, gg_exp2_greencor, ncol =2, labels = "AUTO")
+
+ggsave(gg_exp2_combinedcors, filename = "experiment2_green_and_darkturquoise_module_significance.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
+       width = 50, height = 16, units = "cm")
 ```
 
 Looking at the GO terms associated with these two modules: darkturquoise is associated with a smaller set of terms, with an emphasis on sensory processes, while green is associated with a larger set of terms that include biosynthetic and respiratory processes. 
