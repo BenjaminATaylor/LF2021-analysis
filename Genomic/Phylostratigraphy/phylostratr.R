@@ -33,29 +33,3 @@ table(phylostrata$mrca_name)
 
 #save
 write.csv(phylostrata, file = "/home/benjamin/Documents/LF_2020_repo/Genomic/Phylostratigraphy/phylostrata.csv", row.names=F)
-
-# load for testing
-phylostrata = read.csv("/home/benjamin/Documents/LF_2020_repo/Genomic/Phylostratigraphy/phylostrata.csv")
-table(phylostrata$ps)
-# look at phylostrata
-unique(phylostrata[,c("ps","mrca_name")])
-#looks like good breaks could be:
-# LF-specific genes = 19
-# Hymenopteran genes = 16-18
-# Arthoropod genes = 10-15
-# Animal genes = 4-9
-# Ancient genes = 1-3
-
-phylostrata$bin = dplyr::case_when(phylostrata$ps == 19 ~ "Lineage-specific",
-                                   phylostrata$ps %in% c(16:18) ~ "Hymenoptera",
-                                   phylostrata$ps %in% c(10:15) ~ "Arthropoda",
-                                   phylostrata$ps %in% c(4:9) ~ "Metazoa",
-                                   phylostrata$ps %in% c(1:3) ~ "Ancient")
-
-phylostrata$qseqid = substr(phylostrata$qseqid,1,14)
-
-phylo_up = subset(phylostrata, qseqid %in% genes_up_exp2_antiforaging)$bin
-phylo_down = subset(phylostrata, qseqid %in% genes_down_exp2_antiforaging)$bin
-
-table(phylo_up)/length(phylo_up)
-table(phylo_down)/length(phylo_down)
