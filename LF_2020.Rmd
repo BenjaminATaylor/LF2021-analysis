@@ -1804,6 +1804,14 @@ padjmelt$modcolor = factor(stringr::str_sub(colnames(MEs),3,), levels = stringr:
 
 SimpleNames = paste0("Module ",c(ncol(MEs):1))
 
+#save gene module membership to data frame
+moduleColorMatch = cbind(as.character(unique(padjmelt$modcolor)), rev(SimpleNames))
+write.csv(data.frame(GeneID = row.names(exp2.gene.count.clean.normalize),
+           Module = moduleColorMatch[match(moduleColors, moduleColorMatch[,1]),2]),
+          file = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/tables/experiment2_gene_module_membership.csv",
+          row.names = F)
+
+
 gg_module_pheno = ggplot(data = padjmelt, aes(x = variable, y = modcolor)) +
   geom_tile(aes(fill = value),color = "gray", size=.75, width=1, height = 1) +
   geom_text(aes(label=c(textMatrix)), 
@@ -1837,6 +1845,8 @@ gg_module_pheno = ggplot(data = padjmelt, aes(x = variable, y = modcolor)) +
 
 ggsave(gg_module_pheno, filename = "experiment2_modules.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
        width = 25, height = 18, units = "cm")
+
+
 
 ```
 ```{r testmodule}
@@ -2689,5 +2699,96 @@ gg_exp2_down_overlaps = ggarrange(gg_exp2_downDEG_overlaps, gg_exp2_downGO_overl
 
 ggsave(gg_exp2_down_overlaps, filename = "experiment2_indirect_fitness_all_overlap.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
        width = 30, height = 14, units = "cm")
+```
+
+Let's retrieve phylostratigraphy results and then ask whether genes that are positively and negatively correlated with foraging rate in experiment 2 workers are more or less likely to be ancient:
+
+```{r}
+# load phylostratigraphy results
+phylostrata = read.csv("/home/benjamin/Documents/LF_2020_repo/Genomic/Phylostratigraphy/phylostrata.csv")
+# unique(phylostrata[,c("ps","mrca_name")])
+#looks like good breaks could be:
+# LF-specific genes = 19
+# Hymenopteran genes = 16-18
+# Arthoropod genes = 10-15
+# Animal genes = 4-9
+# Ancient genes = 1-3
+phylostrata$bin = dplyr::case_when(phylostrata$ps == 19 ~ "Lineage-specific",
+                                   phylostrata$ps %in% c(16:18) ~ "Hymenoptera",
+                                   phylostrata$ps %in% c(10:15) ~ "Arthropoda",
+                                   #phylostrata$ps %in% c(4:9) ~ "Metazoa",
+                                   phylostrata$ps %in% c(1:9) ~ "Ancient")
+phylostrata$qseqid = substr(phylostrata$qseqid,1,14)
+
+# divide into groups based on correlation with foraging rate
+phylo_up = subset(phylostrata, qseqid %in% genes_up_exp2_antiforaging)$bin
+phylo_down = subset(phylostrata, qseqid %in% genes_down_exp2_antiforaging)$bin
+phylo_neutral = subset(phylostrata, !(qseqid %in% c(genes_down_exp2_antiforaging, genes_up_exp2_antiforaging)))$bin
+
+#plot
+strataframe =  rbind(data.frame(treatment = "up",strata = phylo_up),
+                     data.frame(treatment = "down",strata = phylo_down),
+                     data.frame(treatment = "neutral",strata = phylo_neutral)) %>%
+  mutate(strata = factor(strata,levels = c("Lineage-specific","Hymenoptera","Arthropoda","Metazoa","Ancient"))) %>%
+  mutate(treatment = factor(treatment,levels = c("up","down","neutral")))
+
+strataplot = ggplot(strataframe, aes(x = treatment, fill = strata)) +
+  geom_bar(position = "fill", width = 0.9, colour = "black",) +
+  #scale_fill_brewer(palette = "Blues",direction = -1)+
+  scale_fill_manual(values = brewer.pal(6,"Blues")[3:6], guide = guide_legend(reverse=T)) +
+  scale_x_discrete(labels = c("Negative","Positive","Unbiased"), 
+                   expand = c(0, 0)) +
+  scale_y_continuous(labels = scales::percent, expand = c(0,0)) +
+  xlab("Differential expression\nwith foraging rate") +
+  ylab("Proportion") +
+  coord_flip() +
+  theme_bw() +
+  theme(aspect.ratio = 1/4, 
+        legend.text = element_text(size=15),
+        legend.title = element_blank(),
+        legend.position = "top",
+        legend.spacing.x = unit(0.5,"cm"),
+        plot.title = element_text(size=18, face="bold", hjust = 0.5),
+        axis.text.x = element_text(size=15),
+        axis.text.y = element_text(size=15),
+        axis.title.x = element_text(size=15, face = "bold"),
+        axis.title.y = element_text(size=15, face = "bold"),
+        panel.grid = element_line(size = 0.2, colour = "gray95"),
+        axis.ticks = element_line(size=1),
+        panel.border = element_rect(size=1.5),
+        strip.text.x = element_text(size=15, face = "bold"),
+        strip.background = element_rect(size = 1.5))
+
+#save plot
+ggsave(strataplot, filename = "experiment2_foraging_phylostrata.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
+       width = 30, height = 8, units = "cm")
+
+#make contignency table for hypothesis testing
+stratacontingency = rbind(table(phylo_up),
+                          table(phylo_down),
+                          table(phylo_neutral)) %>% 'row.names<-'(c("negative","positive","neutral"))
+
+# first test whether genes are more likely to be ancient in postive/negative vs neutral
+stratacontingency_ancient = cbind(stratacontingency[,1],rowSums(stratacontingency[,1:3]))
+#negatively-correlated genes are not more likely to be ancient
+fisher.test(stratacontingency_ancient[c(1,3),])
+#positively-correlated genes are not more likely to be ancient
+fisher.test(stratacontingency_ancient[c(2,3),])
+
+# now whether genes are more likely to be of arthropod origin in postive/negative vs neutral
+stratacontingency_arthropoda = cbind(stratacontingency[,2],rowSums(stratacontingency[,c(1,3:4)]))
+#negatively-correlated genes are not more likely to be arthropod
+fisher.test(stratacontingency_arthropoda[c(1,3),])
+#positively-correlated genes are significantly more likely to be arthropod
+fisher.test(stratacontingency_arthropoda[c(2,3),])
+
+# now whether genes are more likely to be LF-specific in postive/negative vs neutral
+# worth noting that since we lack any other eumenine genomes, this doesn't necessarily have anything to do with sociality 
+# also worth noting that this reflects results of warner et al 2019 who also appear to find more recently-derived genes among non-DE genes
+stratacontingency_lineagespecific = cbind(stratacontingency[,4],rowSums(stratacontingency[,c(1:3)]))
+#negatively-correlated genes are significantly less likely to be lineage-specific
+fisher.test(stratacontingency_lineagespecific[c(1,3),])
+#positively-correlated genes are significantly less likely to be lineage-specific
+fisher.test(stratacontingency_lineagespecific[c(2,3),])
 ```
 
