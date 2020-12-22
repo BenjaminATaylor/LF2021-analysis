@@ -1173,7 +1173,7 @@ gg_exp2_pairwise_DEGs_finalrank
 ```
 Repeat but with original rank rather than final rank:
 
-```{r exp2-group-treatment-DEGs-finalrank}
+```{r exp2-group-treatment-DEGs-origrank}
 exp2.phenodata.clean.test = mutate(exp2.phenodata.clean, Rank = as.factor(Rank))
 
 # perform analysis 
@@ -1292,7 +1292,7 @@ DEGplot_lfc1.5_origrank = ggplot(data = DEGs_plot, aes(x=Var1, y=Var2, fill=valu
 gg_exp2_pairwise_DEGs_origrank = ggarrange(DEGplot_lfc0_origrank, DEGplot_lfc1.5_origrank, ncol = 2, common.legend = T, labels = "AUTO", legend = "top")
 plot(gg_exp2_pairwise_DEGs_origrank)
 
-gg_exp2_pairwise_DEGs_all = ggarrange(DEGplot_lfc0_finalrank, DEGplot_lfc1.5_finalrank, DEGplot_lfc0_origrank, DEGplot_lfc1.5_origrank,
+gg_exp2_pairwise_DEGs_all = ggarrange(DEGplot_lfc0_finalrank, DEGplot_lfc0_origrank, DEGplot_lfc1.5_finalrank, DEGplot_lfc1.5_origrank,
                                       ncol = 2, nrow = 2, common.legend = T, labels = "AUTO", legend = "top")
 
 ggsave(gg_exp2_pairwise_DEGs_all, filename = "experiment2_pairwise_DEGs.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures",
@@ -1361,10 +1361,13 @@ ageDEGs_no1 = DESeq_wrap(data = exp2.phenodata.clean.no1,
   .$Age %>% subset(padj<0.05) %>% row.names()
 
 
-data.frame("Trait" = c("Original rank", "Final rank", "Foraging rate", "Age"),
+exp2_DEGs_table =  data.frame("Trait" = c("Original rank", "Final rank", "Foraging rate", "Age"),
            "DEG_all" = c(length(originalRankDEGs),length(finalRankDEGs),length(offNestDEGs),NA),
            "DEGs_noRank1" = c(length(originalRankDEGs_no1),length(finalRankDEGs_no1),length(offNestDEGs_no1),length(ageDEGs_no1)))
 
+exp2_DEGs_table
+write.csv(exp2_DEGs_table, "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/tables/exp2_continuous_DEG_summary.csv",
+          row.names = F)
 
 offNestDEGs_no1_full = DESeq_wrap(data = exp2.phenodata.clean.no1,
                                   genes = exp2.gene.counts.clean.no1,
@@ -2386,7 +2389,7 @@ contrasts = t(combn(upChars, 2))
 comps = matrix(nrow = length(upChars), 
               ncol = length(upChars), 
               dimnames = list(upChars,upChars))
-labs = matrix(nrow = length(upChars), 
+labs_up = matrix(nrow = length(upChars), 
               ncol = length(upChars), 
               dimnames = list(upChars,upChars))
 
@@ -2408,8 +2411,8 @@ for(i in 1:nrow(contrasts)){
   inter = length(intersect(get(contrasts[i,1]),
                            get(contrasts[i,2])))
   label = paste0("(",inter," of ",size1,"/",size2,")")
-  labs[contrasts[i,1],contrasts[i,2]] = label
-  labs[contrasts[i,2],contrasts[i,1]] = label
+  labs_up[contrasts[i,1],contrasts[i,2]] = label
+  labs_up[contrasts[i,2],contrasts[i,1]] = label
   
 }
 
@@ -2425,7 +2428,7 @@ gg_exp2_upDEG_overlaps = ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=valu
   geom_tile(color = "black") +
   geom_text(aes(label=value),
             nudge_y = 0.05, fontface = 2) +
-  geom_text(aes(label=na.omit(c(labs))),
+  geom_text(aes(label=na.omit(c(labs_up))),
             nudge_y = -0.15, size = 3) +
   scale_fill_gradientn(colours = colorRampPalette(rev(c("#FFFFFF",brewer.pal(n = 9, name = "Reds")[1:5])),bias=6)(20),
                        breaks = c(0.0,0.05,1),
@@ -2469,7 +2472,7 @@ contrasts = t(combn(upGOChars, 2))
 comps = matrix(nrow = length(upGOChars), 
                ncol = length(upGOChars), 
                dimnames = list(upGOChars,upGOChars))
-labs = matrix(nrow = length(upGOChars), 
+labs_upGO = matrix(nrow = length(upGOChars), 
               ncol = length(upGOChars), 
               dimnames = list(upGOChars,upGOChars))
 
@@ -2492,8 +2495,8 @@ for(i in 1:nrow(contrasts)){
                            get(contrasts[i,2])))
   label = paste0("(",inter," of ",size1,"/",size2,")")
   
-  labs[contrasts[i,1],contrasts[i,2]] = label
-  labs[contrasts[i,2],contrasts[i,1]] = label
+  labs_upGO[contrasts[i,1],contrasts[i,2]] = label
+  labs_upGO[contrasts[i,2],contrasts[i,1]] = label
   
 }
 
@@ -2508,7 +2511,7 @@ gg_exp2_upGO_overlaps = ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value
   geom_tile(color = "black") +
   geom_text(aes(label=value),
             nudge_y = 0.05, fontface = 2) +
-  geom_text(aes(label=na.omit(c(labs))),
+  geom_text(aes(label=na.omit(c(labs_upGO))),
             nudge_y = -0.15, size = 3) +
   scale_x_discrete(labels = upLabels) +
   scale_y_discrete(labels = upLabels) +
@@ -2559,7 +2562,7 @@ contrasts = t(combn(downChars, 2))
 comps = matrix(nrow = length(downChars), 
                ncol = length(downChars), 
                dimnames = list(downChars,downChars))
-labs = matrix(nrow = length(downChars), 
+labs_down = matrix(nrow = length(downChars), 
               ncol = length(downChars), 
               dimnames = list(downChars,downChars))
 
@@ -2581,8 +2584,8 @@ for(i in 1:nrow(contrasts)){
   inter = length(intersect(get(contrasts[i,1]),
                            get(contrasts[i,2])))
   label = paste0("(",inter," of ",size1,"/",size2,")")
-  labs[contrasts[i,1],contrasts[i,2]] = label
-  labs[contrasts[i,2],contrasts[i,1]] = label
+  labs_down[contrasts[i,1],contrasts[i,2]] = label
+  labs_down[contrasts[i,2],contrasts[i,1]] = label
   
 }
 
@@ -2596,7 +2599,7 @@ gg_exp2_downDEG_overlaps = ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=va
   geom_tile(color = "black") +
   geom_text(aes(label=value),
             nudge_y = 0.05, fontface = 2) +
-  geom_text(aes(label=na.omit(c(labs))),
+  geom_text(aes(label=na.omit(c(labs_down))),
             nudge_y = -0.15, size = 3) +
   scale_x_discrete(labels = downLabels) +
   scale_y_discrete(labels = downLabels) +
@@ -2635,7 +2638,7 @@ contrasts = t(combn(downGOChars, 2))
 comps = matrix(nrow = length(downGOChars), 
                ncol = length(downGOChars), 
                dimnames = list(downGOChars,downGOChars))
-labs = matrix(nrow = length(downGOChars), 
+labs_downGO = matrix(nrow = length(downGOChars), 
                ncol = length(downGOChars), 
                dimnames = list(downGOChars,downGOChars))
 
@@ -2658,8 +2661,8 @@ for(i in 1:nrow(contrasts)){
                            get(contrasts[i,2])))
   label = paste0("(",inter," of ",size1,"/",size2,")")
   
-  labs[contrasts[i,1],contrasts[i,2]] = label
-  labs[contrasts[i,2],contrasts[i,1]] = label
+  labs_downGO[contrasts[i,1],contrasts[i,2]] = label
+  labs_downGO[contrasts[i,2],contrasts[i,1]] = label
   
 }
 
@@ -2674,7 +2677,7 @@ gg_exp2_downGO_overlaps = ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=val
   geom_tile(color = "black") +
   geom_text(aes(label=value),
             nudge_y = 0.05, fontface = 2) +
-  geom_text(aes(label=na.omit(c(labs))),
+  geom_text(aes(label=na.omit(c(labs_downGO))),
             nudge_y = -0.15, size = 3) +
   scale_x_discrete(labels = downLabels) +
   scale_y_discrete(labels = downLabels) +
@@ -2761,7 +2764,7 @@ strataplot = ggplot(strataframe, aes(x = treatment, fill = strata)) +
 
 #save plot
 ggsave(strataplot, filename = "experiment2_foraging_phylostrata.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
-       width = 30, height = 8, units = "cm")
+       width = 25, height = 8, units = "cm")
 
 #make contignency table for hypothesis testing
 stratacontingency = rbind(table(phylo_up),
@@ -2769,8 +2772,8 @@ stratacontingency = rbind(table(phylo_up),
                           table(phylo_neutral)) %>% 'row.names<-'(c("negative","positive","neutral"))
 
 # first test whether genes are more likely to be ancient in postive/negative vs neutral
-stratacontingency_ancient = cbind(stratacontingency[,1],rowSums(stratacontingency[,1:3]))
-#negatively-correlated genes are not more likely to be ancient
+stratacontingency_ancient = cbind(stratacontingency[,1],rowSums(stratacontingency[,2:4]))
+#negatively-correlated genes are more likely to be ancient
 fisher.test(stratacontingency_ancient[c(1,3),])
 #positively-correlated genes are not more likely to be ancient
 fisher.test(stratacontingency_ancient[c(2,3),])
