@@ -1,8 +1,10 @@
 library(phylostratr)
 library(tidyverse)
 
+setwd("/home/benjamin/Documents/LF_2020_repo/Genomic/Phylostratigraphy/Pdom")
+
 weights=uniprot_weight_by_ref()
-focal_taxid = '85445'
+focal_taxid = '743375'
 strata =
   # Get stratified relatives represented in UniProt
   uniprot_strata(focal_taxid, from=2) %>%
@@ -16,7 +18,7 @@ strata =
   uniprot_fill_strata
 
 # LF data aren;t on UniProt, so add them manually
-strata@data$faa[['85445']] = '/home/benjamin/Documents/LF_2020_repo/Genomic/Liostenogaster_flavolineata.faa'
+strata@data$faa[['743375']] = '/home/benjamin/Documents/LF_2020_repo/Genomic/Polistes_dominula.faa'
 
 # for testing purposes, take just 1% of genes
 #strata@data$faa[['85445']] <- thin_fasta(strata@data$faa[['85445']], 100)
@@ -32,4 +34,8 @@ phylostrata <- stratify(results)
 table(phylostrata$mrca_name)
 
 #save
-write.csv(phylostrata, file = "/home/benjamin/Documents/LF_2020_repo/Genomic/Phylostratigraphy/phylostrata.csv", row.names=F)
+write.csv(phylostrata, file = "/home/benjamin/Documents/LF_2020_repo/Genomic/Phylostratigraphy/phylostrata_pdom.csv", row.names=F)
+
+phylostrata_pdom = read.csv("/home/benjamin/Documents/LF_2020_repo/Genomic/Phylostratigraphy/phylostrata_pdom.csv")
+
+phylostrata_pdom
