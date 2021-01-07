@@ -759,6 +759,15 @@ gg_exp2_foragingbefore = ggplot(exp2.phenodata.clean, aes(x = as.factor(Rank), y
 print("Relationship between rank and foraging rate prior to manipulation:")
 #the relationship is highly significant
 summary(lm(OffNestBefore~Rank, data = exp2.phenodata.clean))$coefficients
+
+#summarise time off nest
+exp2.phenodata.clean %>% 
+  group_by(Treatment) %>% 
+  summarize(size = length(Treatment),
+            AgeMean = mean(Age),
+            AgeSD = sd(Age),
+            AgeRange1 = range(Age)[1],
+            AgeRange2 = range(Age)[2])
 ```
 
 We also expect that individuals will exhibit higher mean foraging rates on smaller nests, since a smaller number of individuals are maintaining the same foraging effort. While there is no relationship between nest size and foraging rate when ignoring rank, including rank as a factor in an additive linear model reveals that both effects are present: individuals forage more both when they're of a lower rank and when there are fewer individuals in their nest. 
@@ -1295,6 +1304,11 @@ plot(gg_exp2_pairwise_DEGs_origrank)
 gg_exp2_pairwise_DEGs_all = ggarrange(DEGplot_lfc0_finalrank, DEGplot_lfc0_origrank, DEGplot_lfc1.5_finalrank, DEGplot_lfc1.5_origrank,
                                       ncol = 2, nrow = 2, common.legend = T, labels = "AUTO", legend = "top")
 
+gg_exp2_pairwise_DEGs_0lfc = ggarrange(DEGplot_lfc0_finalrank, DEGplot_lfc0_origrank, ncol = 2, common.legend = T, labels = "AUTO", legend = "top")
+
+ggsave(gg_exp2_pairwise_DEGs_0lfc, filename = "experiment2_pairwise_DEGs_0lfc.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures",
+       width = 25, height = 15, units = "cm")
+
 ggsave(gg_exp2_pairwise_DEGs_all, filename = "experiment2_pairwise_DEGs.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures",
        width = 25, height = 27, units = "cm")
 ```
@@ -1494,17 +1508,17 @@ offNestDEGs_forGO = DESeq_wrap(data = exp2.phenodata.clean.no1,
 
 offNestDEGs_forGO$OffNestFinal %>% subset(padj<0.05 & log2FoldChange>0) %>% nrow()
 
+genes_up_exp2_foraging = offNestDEGs_forGO$OffNestFinal %>% subset(padj<0.05 & log2FoldChange > 0) %>% row.names()
+GOscores_up_exp2_foraging = as.numeric(row.names(exp2.gene.counts.clean) %in% genes_up_exp2_foraging) %>%'names<-'(row.names(exp2.gene.counts.clean))
 
-offNestDEGs_forGO$OffNestFinal %>% subset(padj<0.05 & log2FoldChange>0)
-
-foragingGO_up =  topGO_wrapper(geneScores = offNestDEGs_forGO$OffNestFinal,
-                            geneScoresDE = T,
-                            geneScoresDirection = "Up",
+foragingGO_up =  topGO_wrapper(geneScores = GOscores_up_exp2_foraging,
+                            geneScoresDE = F,
+                            geneScoresDirection = NA,
                             GOmapping = GOmapping_LF,
                             algorithm = "weight01",
                             statistic = "fisher",
                             nodeSize = 10,
-                            discretisedDE = T,
+                            discretisedDE = F,
                             p = 0.01)
 
 #save plots and table
@@ -1544,15 +1558,17 @@ GOplot_foragingUp = ggplot(topForagingGO_up, aes(y = reorder(Term, result*(-1)),
 
 #now genes that are downregulated
 offNestDEGs_forGO$OffNestFinal %>% subset(padj<0.05 & log2FoldChange<0) %>% nrow()
+genes_down_exp2_foraging = offNestDEGs_forGO$OffNestFinal %>% subset(padj<0.05 & log2FoldChange < 0) %>% row.names()
+GOscores_down_exp2_foraging = as.numeric(row.names(exp2.gene.counts.clean) %in% genes_down_exp2_foraging) %>%'names<-'(row.names(exp2.gene.counts.clean))
 
-foragingGO_down =  topGO_wrapper(geneScores = offNestDEGs_forGO$OffNestFinal,
-                            geneScoresDE = T,
-                            geneScoresDirection = "Down",
+foragingGO_down =  topGO_wrapper(geneScores = GOscores_down_exp2_foraging,
+                            geneScoresDE = F,
+                            geneScoresDirection = NA,
                             GOmapping = GOmapping_LF,
                             algorithm = "weight01",
                             statistic = "fisher",
                             nodeSize = 10,
-                            discretisedDE = T,
+                            discretisedDE = F,
                             p = 0.01)
 
 #save plots and table
@@ -1626,7 +1642,7 @@ Instead, let's now perform WGCNA on all non-rank 1 individuals together. Doing s
 # Perform filtering- we apply a more stringent filtering process here, because WGCNA benefits from cleaner data
 # Here we remove any samples that don't have at least 10 counts in at least ~90% of samples
 exp2.gene.count.clean.normalize =  exp2.gene.counts.clean.no1[rowSums(exp2.gene.counts.clean.no1 > 10) > ceiling(ncol(exp2.gene.counts.clean.no1)*0.9), ]
-#print(paste0(nrow(exp2.gene.count.clean.normalize),"/",nrow(exp2.gene.counts.clean.no1)," genes remain"))
+print(paste0(nrow(exp2.gene.count.clean.normalize),"/",nrow(exp2.gene.counts.clean.no1)," genes remain"))
 # We also normalize the data
 exp2.gene.count.clean.normalize = exp2.gene.count.clean.normalize  %>% varianceStabilizingTransformation() %>% normalizeBetweenArrays()
 
@@ -2372,12 +2388,12 @@ Then let's compare all gene lists that are putatively direct fitness-biased:
 
 ```{r genelist-directfitness-comparisons}
 #list of gene list names
-upChars = c("genes_up_exp1_labour",
+upChars = c(#"genes_up_exp1_labour",
            "genes_up_exp2_rank",
            "genes_up_exp2_antiforaging",
            "genes_up_Pdom_caste_LF")
 
-upLabels = c("Experiment 1\nReproductives",
+upLabels = c(#"Experiment 1\nReproductives",
              "Experiment 2\nReproductives",
              "Time on Nest",
              "Polistes dominula\nqueens")
@@ -2412,21 +2428,23 @@ for(i in 1:nrow(contrasts)){
                            get(contrasts[i,2])))
   label = paste0("(",inter," of ",size1,"/",size2,")")
   labs_up[contrasts[i,1],contrasts[i,2]] = label
-  labs_up[contrasts[i,2],contrasts[i,1]] = label
+  #labs_up[contrasts[i,2],contrasts[i,1]] = label
   
 }
 
 # adjust p-values
 comps[lower.tri(comps)] = round(p.adjust(comps[lower.tri(comps)], method = "BH"),digits = 4)
-comps[upper.tri(comps)] = round(p.adjust(comps[upper.tri(comps)], method = "BH"), digits = 4)
+comps[upper.tri(comps)] = NA
 
 # melt and plot
 comps_plot = reshape2::melt(comps, na.rm = TRUE)
+comps_plot$valuereal = comps_plot$value
+comps_plot$valuereal[which(comps_plot$value==0)] = "<0.0001"
 gg_exp2_upDEG_overlaps = ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value)) + 
-  scale_x_discrete(labels = upLabels) +
-  scale_y_discrete(labels = upLabels) +
+  scale_x_discrete(labels = c("Time on Nest", "Polistes dominula\nqueens")) +
+  scale_y_discrete(labels = c("Reroductives", "Time on Nest")) +
   geom_tile(color = "black") +
-  geom_text(aes(label=value),
+  geom_text(aes(label=valuereal),
             nudge_y = 0.05, fontface = 2) +
   geom_text(aes(label=na.omit(c(labs_up))),
             nudge_y = -0.15, size = 3) +
@@ -2441,8 +2459,8 @@ gg_exp2_upDEG_overlaps = ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=valu
                                                frame.colour = "black", 
                                                frame.linewidth = 1.5)) +
   theme_minimal() + 
-  theme(axis.text.x = element_text(angle = 45, vjust = 1,
-                                   size = 12, hjust = 1),
+  theme(axis.text.x = element_text(#angle = 45, vjust = 1,
+                                   size = 12, hjust = 0.5),
         axis.text.y = element_text(size = 12),
         axis.title = element_blank()) +
   coord_fixed()
@@ -2455,12 +2473,12 @@ And likewise for the GO terms associated with these groups:
 
 ```{r GOlist-directfitness-comparisons}
 #save as a character list for purposes of combination
-upGOChars = c("GO_up_exp1_labour",
+upGOChars = c(#"GO_up_exp1_labour",
                 "GO_up_exp2_rank",
                 "GO_up_exp2_antiforaging",
                 "GO_up_Pdom_caste")
 
-upLabels = c("Experiment 1\nReproductives",
+upLabels = c(#"Experiment 1\nReproductives",
              "Experiment 2\nReproductives",
              "Time on Nest",
              "Polistes dominula\nqueens")
@@ -2496,25 +2514,27 @@ for(i in 1:nrow(contrasts)){
   label = paste0("(",inter," of ",size1,"/",size2,")")
   
   labs_upGO[contrasts[i,1],contrasts[i,2]] = label
-  labs_upGO[contrasts[i,2],contrasts[i,1]] = label
+  # labs_upGO[contrasts[i,2],contrasts[i,1]] = label
   
 }
 
 # adjust p-values
 # note that due to sensitivity of the hypergeometric test for GO terms, here we use the more conservative Bonferroni correction rather than B-H
 comps[lower.tri(comps)] = round(p.adjust(comps[lower.tri(comps)], method = "bonferroni"),digits = 4)
-comps[upper.tri(comps)] = round(p.adjust(comps[upper.tri(comps)], method = "bonferroni"), digits = 4)
+comps[upper.tri(comps)] = NA
 
 # melt and plot
 comps_plot = reshape2::melt(comps, na.rm = TRUE)
+comps_plot$valuereal = comps_plot$value
+comps_plot$valuereal[which(comps_plot$value==0)] = "<0.0001"
 gg_exp2_upGO_overlaps = ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value)) +
   geom_tile(color = "black") +
-  geom_text(aes(label=value),
+  geom_text(aes(label=valuereal),
             nudge_y = 0.05, fontface = 2) +
   geom_text(aes(label=na.omit(c(labs_upGO))),
             nudge_y = -0.15, size = 3) +
-  scale_x_discrete(labels = upLabels) +
-  scale_y_discrete(labels = upLabels) +
+  scale_x_discrete(labels = c("Time on Nest", "Polistes dominula\nqueens")) +
+  scale_y_discrete(labels = c("Reroductives", "Time on Nest")) +
   scale_fill_gradientn(colours = colorRampPalette(rev(c("#FFFFFF",brewer.pal(n = 9, name = "Reds")[1:5])),bias=6)(20),
                        breaks = c(0.0,0.05,1),
                        expand = c(0,0),
@@ -2526,8 +2546,8 @@ gg_exp2_upGO_overlaps = ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value
                                                frame.colour = "black", 
                                                frame.linewidth = 1.5)) +
   theme_minimal() + 
-  theme(axis.text.x = element_text(angle = 45, vjust = 1,
-                                   size = 12, hjust = 1),
+  theme(axis.text.x = element_text(#angle = 45, vjust = 1,
+                                   size = 12, hjust = 0.5),
         axis.text.y = element_text(size = 12),
         axis.title = element_blank()) +
   coord_fixed()
@@ -2545,14 +2565,14 @@ All gene lists that are putatively indirect fitness-biased:
 
 ```{r genelist-indirectfitness-comparisons}
 #list of gene list names
-downChars = c("genes_down_exp1_labour",
+downChars = c(#"genes_down_exp1_labour",
             "genes_down_exp2_rank",
             "genes_down_exp2_antiforaging",
             "genes_down_Pdom_caste_LF")
 
-downLabels = c("Experiment 1\nSubordinates",
+downLabels = c(#"Experiment 1\nSubordinates",
              "Experiment 2\nSubordinates",
-             "Time off Nest",
+             "Foraging effort",
              "Polistes dominula\nWorkers")
 
 # get all contrasts
@@ -2575,8 +2595,8 @@ for(i in 1:nrow(contrasts)){
                      row.names(exp2.gene.count.clean.normalize)) %>% 
     .$hypergeom 
   
-  comps[contrasts[i,1],contrasts[i,2]] = sig
-  comps[contrasts[i,2],contrasts[i,1]] = comps[contrasts[i,1],contrasts[i,2]]
+  #comps[contrasts[i,1],contrasts[i,2]] = sig
+  comps[contrasts[i,2],contrasts[i,1]] = sig
   
   #get lengths for text labels
   size1 = length(get(contrasts[i,1]))
@@ -2584,25 +2604,27 @@ for(i in 1:nrow(contrasts)){
   inter = length(intersect(get(contrasts[i,1]),
                            get(contrasts[i,2])))
   label = paste0("(",inter," of ",size1,"/",size2,")")
-  labs_down[contrasts[i,1],contrasts[i,2]] = label
+  #labs_down[contrasts[i,1],contrasts[i,2]] = label
   labs_down[contrasts[i,2],contrasts[i,1]] = label
   
 }
 
 # adjust p-values
 comps[lower.tri(comps)] = round(p.adjust(comps[lower.tri(comps)], method = "BH"),digits = 4)
-comps[upper.tri(comps)] = round(p.adjust(comps[upper.tri(comps)], method = "BH"), digits = 4)
+#comps[upper.tri(comps)] = round(p.adjust(comps[upper.tri(comps)], method = "BH"), digits = 4)
 
 # melt and plot
 comps_plot = reshape2::melt(comps, na.rm = TRUE)
+comps_plot$valuereal = comps_plot$value
+comps_plot$valuereal[which(comps_plot$value==0)] = "<0.0001"
 gg_exp2_downDEG_overlaps = ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value)) + 
   geom_tile(color = "black") +
-  geom_text(aes(label=value),
+  geom_text(aes(label=valuereal),
             nudge_y = 0.05, fontface = 2) +
   geom_text(aes(label=na.omit(c(labs_down))),
             nudge_y = -0.15, size = 3) +
-  scale_x_discrete(labels = downLabels) +
-  scale_y_discrete(labels = downLabels) +
+  scale_x_discrete(labels = c("Foraging effort","Polistes dominula\nworkers")) +
+  scale_y_discrete(labels = c("Non-reproductives","Foraging effort")) +
   scale_fill_gradientn(colours = colorRampPalette(rev(c("#FFFFFF",brewer.pal(n = 9, name = "Reds")[1:5])),bias=6)(20),
                        breaks = c(0.0,0.05,1),
                        expand = c(0,0),
@@ -2614,8 +2636,8 @@ gg_exp2_downDEG_overlaps = ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=va
                                                frame.colour = "black", 
                                                frame.linewidth = 1.5)) +
   theme_minimal() + 
-  theme(axis.text.x = element_text(angle = 45, vjust = 1,
-                                   size = 12, hjust = 1),
+  theme(axis.text.x = element_text(#angle = 45, vjust = 1,
+                                   size = 12, hjust = 0.5),
         axis.text.y = element_text(size = 12),
         axis.title = element_blank()) +
   coord_fixed()
@@ -2626,7 +2648,7 @@ And likewise for the GO terms associated with these groups:
 
 ```{r GOlist-indirectfitness-comparisons}
 #save as a character list for purposes of combination
-downGOChars = c("GO_down_exp1_labour",
+downGOChars = c(#"GO_down_exp1_labour",
                 "GO_down_exp2_rank",
                 "GO_down_exp2_antiforaging",
                 "GO_down_Pdom_caste")
@@ -2651,8 +2673,8 @@ for(i in 1:nrow(contrasts)){
                      GO_LF_allTerms) %>% 
     .$hypergeom 
   
-  comps[contrasts[i,1],contrasts[i,2]] = sig
-  comps[contrasts[i,2],contrasts[i,1]] = comps[contrasts[i,1],contrasts[i,2]]
+  #comps[contrasts[i,1],contrasts[i,2]] = sig
+  comps[contrasts[i,2],contrasts[i,1]] = sig
   
   #get lengths for text labels
   size1 = length(get(contrasts[i,1]))
@@ -2661,7 +2683,7 @@ for(i in 1:nrow(contrasts)){
                            get(contrasts[i,2])))
   label = paste0("(",inter," of ",size1,"/",size2,")")
   
-  labs_downGO[contrasts[i,1],contrasts[i,2]] = label
+  #labs_downGO[contrasts[i,1],contrasts[i,2]] = label
   labs_downGO[contrasts[i,2],contrasts[i,1]] = label
   
 }
@@ -2669,18 +2691,20 @@ for(i in 1:nrow(contrasts)){
 # adjust p-values
 # note that due to sensitivity of the hypergeometric test for GO terms, here we use the more conservative Bonferroni correction rather than B-H
 comps[lower.tri(comps)] = round(p.adjust(comps[lower.tri(comps)], method = "bonferroni"),digits = 4)
-comps[upper.tri(comps)] = round(p.adjust(comps[upper.tri(comps)], method = "bonferroni"), digits = 4)
+#comps[upper.tri(comps)] = round(p.adjust(comps[upper.tri(comps)], method = "bonferroni"), digits = 4)
 
 # melt and plot
 comps_plot = reshape2::melt(comps, na.rm = TRUE)
+comps_plot$valuereal = comps_plot$value
+comps_plot$valuereal[which(comps_plot$value==0)] = "<0.0001"
 gg_exp2_downGO_overlaps = ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value)) + 
   geom_tile(color = "black") +
-  geom_text(aes(label=value),
+  geom_text(aes(label=valuereal),
             nudge_y = 0.05, fontface = 2) +
   geom_text(aes(label=na.omit(c(labs_downGO))),
             nudge_y = -0.15, size = 3) +
-  scale_x_discrete(labels = downLabels) +
-  scale_y_discrete(labels = downLabels) +
+  scale_x_discrete(labels = c("Foraging effort","Polistes dominula\nworkers")) +
+  scale_y_discrete(labels = c("Non-reproductives","Foraging effort")) +
   scale_fill_gradientn(colours = colorRampPalette(rev(c("#FFFFFF",brewer.pal(n = 9, name = "Reds")[1:5])),bias=6)(20),
                        breaks = c(0.0,0.05,1),
                        expand = c(0,0),
@@ -2692,8 +2716,8 @@ gg_exp2_downGO_overlaps = ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=val
                                                frame.colour = "black", 
                                                frame.linewidth = 1.5)) +
   theme_minimal() + 
-  theme(axis.text.x = element_text(angle = 45, vjust = 1,
-                                   size = 12, hjust = 1),
+  theme(axis.text.x = element_text(#angle = 45, vjust = 1,
+                                   size = 12, hjust = 0.5),
         axis.text.y = element_text(size = 12),
         axis.title = element_blank()) +
   coord_fixed()
@@ -2793,5 +2817,89 @@ stratacontingency_lineagespecific = cbind(stratacontingency[,4],rowSums(strataco
 fisher.test(stratacontingency_lineagespecific[c(1,3),])
 #positively-correlated genes are significantly less likely to be lineage-specific
 fisher.test(stratacontingency_lineagespecific[c(2,3),])
+```
+
+Repeat but instead for genes that are up/downregulated in queens vs workers:
+
+```{r}
+# divide into groups based on correlation with foraging rate
+phylo_up = subset(phylostrata, qseqid %in% genes_up_exp2_rank)$bin
+phylo_down = subset(phylostrata, qseqid %in% genes_down_exp2_rank)$bin
+phylo_neutral = subset(phylostrata, !(qseqid %in% c(genes_down_exp2_rank, genes_up_exp2_rank)))$bin
+
+#plot
+strataframe_reprod =  rbind(data.frame(treatment = "up",strata = phylo_up),
+                     data.frame(treatment = "down",strata = phylo_down),
+                     data.frame(treatment = "neutral",strata = phylo_neutral)) %>%
+  mutate(strata = factor(strata,levels = c("Lineage-specific","Hymenoptera","Arthropoda","Metazoa","Ancient"))) %>%
+  mutate(treatment = factor(treatment,levels = c("up","down","neutral")))
+
+strataplot_reprod = ggplot(strataframe_reprod, aes(x = treatment, fill = strata)) +
+  geom_bar(position = "fill", width = 0.9, colour = "black",) +
+  #scale_fill_brewer(palette = "Blues",direction = -1)+
+  scale_fill_manual(values = brewer.pal(6,"Blues")[3:6], guide = guide_legend(reverse=T)) +
+  scale_x_discrete(labels = c("Queen\nbiased","Worker\nbiased","Unbiased"), 
+                   expand = c(0, 0)) +
+  scale_y_continuous(labels = scales::percent, expand = c(0,0)) +
+  xlab("Differential expression\nwith reproductive status") +
+  ylab("Proportion") +
+  coord_flip() +
+  theme_bw() +
+  theme(aspect.ratio = 1/4, 
+        legend.text = element_text(size=15),
+        legend.title = element_blank(),
+        legend.position = "top",
+        legend.spacing.x = unit(0.5,"cm"),
+        plot.title = element_text(size=18, face="bold", hjust = 0.5),
+        axis.text.x = element_text(size=15),
+        axis.text.y = element_text(size=15),
+        axis.title.x = element_text(size=15, face = "bold"),
+        axis.title.y = element_text(size=15, face = "bold"),
+        panel.grid = element_line(size = 0.2, colour = "gray95"),
+        axis.ticks = element_line(size=1),
+        panel.border = element_rect(size=1.5),
+        strip.text.x = element_text(size=15, face = "bold"),
+        strip.background = element_rect(size = 1.5))
+
+#save plot
+ggsave(strataplot_reprod, filename = "experiment2_foraging_phylostrata_reproductives.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
+       width = 25, height = 8, units = "cm")
+
+#make contignency table for hypothesis testing
+stratacontingency = rbind(table(phylo_up),
+                          table(phylo_down),
+                          table(phylo_neutral)) %>% 'row.names<-'(c("negative","positive","neutral"))
+
+# first test whether genes are more likely to be ancient in postive/negative vs neutral
+stratacontingency_ancient = cbind(stratacontingency[,1],rowSums(stratacontingency[,2:4]))
+#negatively-correlated genes are more likely to be ancient
+fisher.test(stratacontingency_ancient[c(1,3),])
+#positively-correlated genes are not more likely to be ancient
+fisher.test(stratacontingency_ancient[c(2,3),])
+
+# now whether genes are more likely to be of arthropod origin in postive/negative vs neutral
+stratacontingency_arthropoda = cbind(stratacontingency[,2],rowSums(stratacontingency[,c(1,3:4)]))
+#negatively-correlated genes are not more likely to be arthropod
+fisher.test(stratacontingency_arthropoda[c(1,3),])
+#positively-correlated genes are significantly more likely to be arthropod
+fisher.test(stratacontingency_arthropoda[c(2,3),])
+
+# now whether genes are more likely to be LF-specific in postive/negative vs neutral
+# worth noting that since we lack any other eumenine genomes, this doesn't necessarily have anything to do with sociality 
+# also worth noting that this reflects results of warner et al 2019 who also appear to find more recently-derived genes among non-DE genes
+stratacontingency_lineagespecific = cbind(stratacontingency[,4],rowSums(stratacontingency[,c(1:3)]))
+#negatively-correlated genes are significantly less likely to be lineage-specific
+fisher.test(stratacontingency_lineagespecific[c(1,3),])
+#positively-correlated genes are significantly less likely to be lineage-specific
+fisher.test(stratacontingency_lineagespecific[c(2,3),])
+#what about comparing queens and workers
+fisher.test(stratacontingency_lineagespecific[c(1,2),])
+
+
+
+strataplot_combi = ggarrange(strataplot_reprod, strataplot, ncol =1, common.legend = T, labels = "AUTO", label.y = 1.11)
+
+ggsave(strataplot_combi, filename = "experiment2_foraging_phylostrata_combined.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
+       width = 27, height = 15, units = "cm")
 ```
 
