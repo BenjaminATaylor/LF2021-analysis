@@ -454,6 +454,10 @@ DEGplot_lfc1.5 = ggplot(data = DEGs_plot, aes(x=Var1, y=Var2, fill=value)) +
         legend.title = element_text(size=15, face = "bold")) +
   coord_fixed()
 
+#save just regular plot
+ggsave(DEGplot_lfc0, filename = "experiment1_pairwise_DEGs_lfc0.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
+       width = 20, height = 12, units = "cm")
+
 #give both plot
 gg_exp1_pairwise_DEGs = ggarrange(DEGplot_lfc0, DEGplot_lfc1.5, ncol = 2, common.legend = T, labels = "AUTO", legend = "top")
 
@@ -2733,30 +2737,36 @@ Let's retrieve phylostratigraphy results and then ask whether genes that are pos
 ```{r}
 # load phylostratigraphy results
 phylostrata = read.csv("/home/benjamin/Documents/LF_2020_repo/Genomic/Phylostratigraphy/phylostrata.csv")
-# unique(phylostrata[,c("ps","mrca_name")])
+unique(phylostrata[,c("ps","mrca_name")])
 #looks like good breaks could be:
 # LF-specific genes = 19
 # Hymenopteran genes = 16-18
 # Arthoropod genes = 10-15
 # Animal genes = 4-9
 # Ancient genes = 1-3
-phylostrata$bin = dplyr::case_when(phylostrata$ps == 19 ~ "Lineage-specific",
-                                   phylostrata$ps %in% c(16:18) ~ "Hymenoptera",
-                                   phylostrata$ps %in% c(10:15) ~ "Arthropoda",
+# phylostrata$bin = dplyr::case_when(phylostrata$ps == 19 ~ "Lineage-specific",
+#                                    phylostrata$ps %in% c(16:18) ~ "Hymenoptera",
+#                                    phylostrata$ps %in% c(10:15) ~ "Arthropoda",
+#                                    #phylostrata$ps %in% c(4:9) ~ "Metazoa",
+#                                    phylostrata$ps %in% c(1:9) ~ "Ancient")
+phylostrata$bin = dplyr::case_when(phylostrata$ps %in% c(18:19) ~ "Aculeata",
+                                   phylostrata$ps %in% c(16:17) ~ "Hymenoptera",
+                                   phylostrata$ps %in% c(13:15) ~ "Insecta",
                                    #phylostrata$ps %in% c(4:9) ~ "Metazoa",
-                                   phylostrata$ps %in% c(1:9) ~ "Ancient")
+                                   phylostrata$ps %in% c(1:12) ~ "Ancient")
 phylostrata$qseqid = substr(phylostrata$qseqid,1,14)
 
 # divide into groups based on correlation with foraging rate
 phylo_up = subset(phylostrata, qseqid %in% genes_up_exp2_antiforaging)$bin
 phylo_down = subset(phylostrata, qseqid %in% genes_down_exp2_antiforaging)$bin
-phylo_neutral = subset(phylostrata, !(qseqid %in% c(genes_down_exp2_antiforaging, genes_up_exp2_antiforaging)))$bin
+phylo_neutral = subset(phylostrata, (qseqid %in% row.names(exp2.gene.counts.clean)) & !(qseqid %in% c(genes_down_exp2_antiforaging, genes_up_exp2_antiforaging)))$bin
 
 #plot
 strataframe =  rbind(data.frame(treatment = "up",strata = phylo_up),
                      data.frame(treatment = "down",strata = phylo_down),
                      data.frame(treatment = "neutral",strata = phylo_neutral)) %>%
-  mutate(strata = factor(strata,levels = c("Lineage-specific","Hymenoptera","Arthropoda","Metazoa","Ancient"))) %>%
+  #mutate(strata = factor(strata,levels = c("Lineage-specific","Hymenoptera","Arthropoda","Metazoa","Ancient"))) %>%
+  mutate(strata = factor(strata,levels = c("Aculeata","Hymenoptera","Insecta","Ancient"))) %>%
   mutate(treatment = factor(treatment,levels = c("up","down","neutral")))
 
 strataplot = ggplot(strataframe, aes(x = treatment, fill = strata)) +
@@ -2796,42 +2806,65 @@ stratacontingency = rbind(table(phylo_up),
                           table(phylo_neutral)) %>% 'row.names<-'(c("negative","positive","neutral"))
 
 # first test whether genes are more likely to be ancient in postive/negative vs neutral
-stratacontingency_ancient = cbind(stratacontingency[,1],rowSums(stratacontingency[,2:4]))
+stratacontingency_ancient = cbind(stratacontingency[,2],rowSums(stratacontingency[,c(1,3,4)]))
 #negatively-correlated genes are more likely to be ancient
 fisher.test(stratacontingency_ancient[c(1,3),])
 #positively-correlated genes are not more likely to be ancient
 fisher.test(stratacontingency_ancient[c(2,3),])
 
 # now whether genes are more likely to be of arthropod origin in postive/negative vs neutral
-stratacontingency_arthropoda = cbind(stratacontingency[,2],rowSums(stratacontingency[,c(1,3:4)]))
+stratacontingency_aculeata = cbind(stratacontingency[,1],rowSums(stratacontingency[,c(2:4)]))
 #negatively-correlated genes are not more likely to be arthropod
-fisher.test(stratacontingency_arthropoda[c(1,3),])
+fisher.test(stratacontingency_aculeata[c(1,3),])
 #positively-correlated genes are significantly more likely to be arthropod
-fisher.test(stratacontingency_arthropoda[c(2,3),])
+fisher.test(stratacontingency_aculeata[c(2,3),])
 
 # now whether genes are more likely to be LF-specific in postive/negative vs neutral
 # worth noting that since we lack any other eumenine genomes, this doesn't necessarily have anything to do with sociality 
 # also worth noting that this reflects results of warner et al 2019 who also appear to find more recently-derived genes among non-DE genes
-stratacontingency_lineagespecific = cbind(stratacontingency[,4],rowSums(stratacontingency[,c(1:3)]))
+stratacontingency_insecta = cbind(stratacontingency[,4],rowSums(stratacontingency[,c(1:3)]))
 #negatively-correlated genes are significantly less likely to be lineage-specific
-fisher.test(stratacontingency_lineagespecific[c(1,3),])
+fisher.test(stratacontingency_insecta[c(1,3),])
 #positively-correlated genes are significantly less likely to be lineage-specific
-fisher.test(stratacontingency_lineagespecific[c(2,3),])
+fisher.test(stratacontingency_insecta[c(2,3),])
 ```
 
 Repeat but instead for genes that are up/downregulated in queens vs workers:
 
 ```{r}
+# load phylostratigraphy results
+phylostrata = read.csv("/home/benjamin/Documents/LF_2020_repo/Genomic/Phylostratigraphy/phylostrata.csv")
+unique(phylostrata[,c("ps","mrca_name")])
+#looks like good breaks could be:
+# LF-specific genes = 19
+# Hymenopteran genes = 16-18
+# Arthoropod genes = 10-15
+# Animal genes = 4-9
+# Ancient genes = 1-3
+# phylostrata$bin = dplyr::case_when(phylostrata$ps == 19 ~ "Lineage-specific",
+#                                    phylostrata$ps %in% c(16:18) ~ "Hymenoptera",
+#                                    phylostrata$ps %in% c(10:15) ~ "Arthropoda",
+#                                    #phylostrata$ps %in% c(4:9) ~ "Metazoa",
+#                                    phylostrata$ps %in% c(1:9) ~ "Ancient")
+phylostrata$bin = dplyr::case_when(phylostrata$ps %in% c(18:19) ~ "Aculeata",
+                                   phylostrata$ps %in% c(16:17) ~ "Hymenoptera",
+                                   phylostrata$ps %in% c(13:15) ~ "Insecta",
+                                   #phylostrata$ps %in% c(4:9) ~ "Metazoa",
+                                   phylostrata$ps %in% c(1:12) ~ "Ancient")
+phylostrata$qseqid = substr(phylostrata$qseqid,1,14)
+
+
 # divide into groups based on correlation with foraging rate
 phylo_up = subset(phylostrata, qseqid %in% genes_up_exp2_rank)$bin
 phylo_down = subset(phylostrata, qseqid %in% genes_down_exp2_rank)$bin
-phylo_neutral = subset(phylostrata, !(qseqid %in% c(genes_down_exp2_rank, genes_up_exp2_rank)))$bin
+phylo_neutral = subset(phylostrata, (qseqid %in% row.names(exp2.gene.counts.clean)) & !(qseqid %in% c(genes_down_exp2_rank, genes_up_exp2_rank)))$bin
 
 #plot
 strataframe_reprod =  rbind(data.frame(treatment = "up",strata = phylo_up),
                      data.frame(treatment = "down",strata = phylo_down),
                      data.frame(treatment = "neutral",strata = phylo_neutral)) %>%
-  mutate(strata = factor(strata,levels = c("Lineage-specific","Hymenoptera","Arthropoda","Metazoa","Ancient"))) %>%
+  # mutate(strata = factor(strata,levels = c("Lineage-specific","Hymenoptera","Arthropoda","Metazoa","Ancient"))) %>%
+  mutate(strata = factor(strata,levels = c("Aculeata","Hymenoptera","Insecta","Ancient"))) %>%
   mutate(treatment = factor(treatment,levels = c("up","down","neutral")))
 
 strataplot_reprod = ggplot(strataframe_reprod, aes(x = treatment, fill = strata)) +
@@ -2871,11 +2904,11 @@ stratacontingency = rbind(table(phylo_up),
                           table(phylo_neutral)) %>% 'row.names<-'(c("negative","positive","neutral"))
 
 # first test whether genes are more likely to be ancient in postive/negative vs neutral
-stratacontingency_ancient = cbind(stratacontingency[,1],rowSums(stratacontingency[,2:4]))
+stratacontingency_aculeata = cbind(stratacontingency[,1],rowSums(stratacontingency[,2:4]))
 #negatively-correlated genes are more likely to be ancient
-fisher.test(stratacontingency_ancient[c(1,3),])
+fisher.test(stratacontingency_aculeata[c(1,3),])
 #positively-correlated genes are not more likely to be ancient
-fisher.test(stratacontingency_ancient[c(2,3),])
+fisher.test(stratacontingency_aculeata[c(2,3),])
 
 # now whether genes are more likely to be of arthropod origin in postive/negative vs neutral
 stratacontingency_arthropoda = cbind(stratacontingency[,2],rowSums(stratacontingency[,c(1,3:4)]))
@@ -2894,8 +2927,6 @@ fisher.test(stratacontingency_lineagespecific[c(1,3),])
 fisher.test(stratacontingency_lineagespecific[c(2,3),])
 #what about comparing queens and workers
 fisher.test(stratacontingency_lineagespecific[c(1,2),])
-
-
 
 strataplot_combi = ggarrange(strataplot_reprod, strataplot, ncol =1, common.legend = T, labels = "AUTO", label.y = 1.11)
 
