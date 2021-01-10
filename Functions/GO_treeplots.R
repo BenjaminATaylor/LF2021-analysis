@@ -12,9 +12,9 @@ GO_treeplots = function(GOframe, path){
   if(!exists("CCsim")){CCsim <<- GOSemSim::godata(org.Dm.eg.db, ont="CC")}
   
   #prepare plotting environment
-  png(filename=path, width=60, height=20, units = "cm", res = 800)
+  png(filename=path, width=15, height=45, units = "cm", res = 800)
   grid.newpage()
-  pushViewport(viewport(layout=grid.layout(1, 3)))
+  pushViewport(viewport(layout=grid.layout(3, 1)))
   
   #BP
   simMatrix <- suppressWarnings(calculateSimMatrix(GOframe$consolidated_result$GO.ID,
@@ -52,7 +52,7 @@ GO_treeplots = function(GOframe, path){
                                   scores,
                                   threshold=0.9,
                                   orgdb="org.Dm.eg.db")
-  vp <- viewport(layout.pos.col=2, layout.pos.row=1)
+  vp <- viewport(layout.pos.col=1, layout.pos.row=2)
   suppressWarnings(treemap::treemap(reducedTerms, index = c("parentTerm", "term"), 
                                     vSize = "score", type = "index", 
                                     title = "Molecular Function", fontsize.title = 18,
@@ -76,7 +76,7 @@ GO_treeplots = function(GOframe, path){
                                   threshold=0.9,
                                   orgdb="org.Dm.eg.db")
     
-  vp <- viewport(layout.pos.col=3, layout.pos.row=1)
+  vp <- viewport(layout.pos.col=1, layout.pos.row=3)
   suppressWarnings(treemap::treemap(reducedTerms, index = c("parentTerm", "term"),  
                                     vSize = "score", type = "index", 
                                     title = "Cellular Component", fontsize.title = 18,
