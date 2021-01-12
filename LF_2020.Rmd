@@ -2395,12 +2395,13 @@ Then let's compare all gene lists that are putatively direct fitness-biased:
 upChars = c(#"genes_up_exp1_labour",
            "genes_up_exp2_rank",
            "genes_up_exp2_antiforaging",
-           "genes_up_Pdom_caste_LF")
+           "genes_up_Pdom_caste_LF",
+           "genes_darkturquoise")
 
-upLabels = c(#"Experiment 1\nReproductives",
-             "Experiment 2\nReproductives",
-             "Time on Nest",
-             "Polistes dominula\nqueens")
+# upLabels = c(#"Experiment 1\nReproductives",
+#              "Experiment 2\nReproductives",
+#              "Time on Nest",
+#              "Polistes dominula\nqueens")
 
 # get all contrasts
 contrasts = t(combn(upChars, 2))
@@ -2445,8 +2446,8 @@ comps_plot = reshape2::melt(comps, na.rm = TRUE)
 comps_plot$valuereal = comps_plot$value
 comps_plot$valuereal[which(comps_plot$value==0)] = "<0.0001"
 gg_exp2_upDEG_overlaps = ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value)) + 
-  scale_x_discrete(labels = c("Time on Nest", "Polistes dominula\nqueens")) +
-  scale_y_discrete(labels = c("Reroductives", "Time on Nest")) +
+  scale_x_discrete(labels = c("Time on Nest", "Polistes dominula\nqueens", "Module 12")) +
+  scale_y_discrete(labels = c("Reroductives", "Time on Nest", "Polistes dominula\nqueens")) +
   geom_tile(color = "black") +
   geom_text(aes(label=valuereal),
             nudge_y = 0.05, fontface = 2) +
@@ -2480,12 +2481,13 @@ And likewise for the GO terms associated with these groups:
 upGOChars = c(#"GO_up_exp1_labour",
                 "GO_up_exp2_rank",
                 "GO_up_exp2_antiforaging",
-                "GO_up_Pdom_caste")
+                "GO_up_Pdom_caste",
+                "GO_darkturquoise")
 
-upLabels = c(#"Experiment 1\nReproductives",
-             "Experiment 2\nReproductives",
-             "Time on Nest",
-             "Polistes dominula\nqueens")
+# upLabels = c(#"Experiment 1\nReproductives",
+#              "Experiment 2\nReproductives",
+#              "Time on Nest",
+#              "Polistes dominula\nqueens")
 
 #get all combinations of contrasts
 contrasts = t(combn(upGOChars, 2))
@@ -2537,8 +2539,8 @@ gg_exp2_upGO_overlaps = ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value
             nudge_y = 0.05, fontface = 2) +
   geom_text(aes(label=na.omit(c(labs_upGO))),
             nudge_y = -0.15, size = 3) +
-  scale_x_discrete(labels = c("Time on Nest", "Polistes dominula\nqueens")) +
-  scale_y_discrete(labels = c("Reroductives", "Time on Nest")) +
+  scale_x_discrete(labels = c("Time on Nest", "Polistes dominula\nqueens", "Module 12")) +
+  scale_y_discrete(labels = c("Reroductives", "Time on Nest", "Polistes dominula\nqueens")) +
   scale_fill_gradientn(colours = colorRampPalette(rev(c("#FFFFFF",brewer.pal(n = 9, name = "Reds")[1:5])),bias=6)(20),
                        breaks = c(0.0,0.05,1),
                        expand = c(0,0),
@@ -2572,12 +2574,13 @@ All gene lists that are putatively indirect fitness-biased:
 downChars = c(#"genes_down_exp1_labour",
             "genes_down_exp2_rank",
             "genes_down_exp2_antiforaging",
-            "genes_down_Pdom_caste_LF")
+            "genes_down_Pdom_caste_LF",
+            "genes_green")
 
-downLabels = c(#"Experiment 1\nSubordinates",
-             "Experiment 2\nSubordinates",
-             "Foraging effort",
-             "Polistes dominula\nWorkers")
+# downLabels = c(#"Experiment 1\nSubordinates",
+#              "Experiment 2\nSubordinates",
+#              "Foraging effort",
+#              "Polistes dominula\nWorkers")
 
 # get all contrasts
 contrasts = t(combn(downChars, 2))
@@ -2627,8 +2630,8 @@ gg_exp2_downDEG_overlaps = ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=va
             nudge_y = 0.05, fontface = 2) +
   geom_text(aes(label=na.omit(c(labs_down))),
             nudge_y = -0.15, size = 3) +
-  scale_x_discrete(labels = c("Foraging effort","Polistes dominula\nworkers")) +
-  scale_y_discrete(labels = c("Non-reproductives","Foraging effort")) +
+  scale_x_discrete(labels = c("Foraging\neffort", "Polistes dominula\nworkers", "Module 16")) +
+  scale_y_discrete(labels = c("Non-reproductives", "Foraging effort", "Polistes dominula\nworkers")) +
   scale_fill_gradientn(colours = colorRampPalette(rev(c("#FFFFFF",brewer.pal(n = 9, name = "Reds")[1:5])),bias=6)(20),
                        breaks = c(0.0,0.05,1),
                        expand = c(0,0),
@@ -2655,7 +2658,8 @@ And likewise for the GO terms associated with these groups:
 downGOChars = c(#"GO_down_exp1_labour",
                 "GO_down_exp2_rank",
                 "GO_down_exp2_antiforaging",
-                "GO_down_Pdom_caste")
+                "GO_down_Pdom_caste",
+                "GO_green")
 
 #get all combinations of contrasts
 contrasts = t(combn(downGOChars, 2))
@@ -2707,8 +2711,8 @@ gg_exp2_downGO_overlaps = ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=val
             nudge_y = 0.05, fontface = 2) +
   geom_text(aes(label=na.omit(c(labs_downGO))),
             nudge_y = -0.15, size = 3) +
-  scale_x_discrete(labels = c("Foraging effort","Polistes dominula\nworkers")) +
-  scale_y_discrete(labels = c("Non-reproductives","Foraging effort")) +
+  scale_x_discrete(labels = c("Foraging\neffort", "Polistes dominula\nworkers", "Module 16")) +
+  scale_y_discrete(labels = c("Non-reproductives", "Foraging effort", "Polistes dominula\nworkers")) +
   scale_fill_gradientn(colours = colorRampPalette(rev(c("#FFFFFF",brewer.pal(n = 9, name = "Reds")[1:5])),bias=6)(20),
                        breaks = c(0.0,0.05,1),
                        expand = c(0,0),
@@ -2932,5 +2936,114 @@ strataplot_combi = ggarrange(strataplot_reprod, strataplot, ncol =1, common.lege
 
 ggsave(strataplot_combi, filename = "experiment2_foraging_phylostrata_combined.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
        width = 27, height = 15, units = "cm")
+```
+Exp1 exp2 overlaps for Seirian:
+
+```{r}
+#overlap exp1 direct fitness exp2 direct fitness
+gene_overlap(genes_up_exp1_labour, genes_up_exp2_rank, background = intersect(row.names(exp1.gene.counts.clean),row.names(exp2.gene.counts.clean)))
+#GO
+gene_overlap(GO_up_exp1_labour, GO_up_exp2_rank, background = allGO)
+
+#overlap exp1 indirect fitness exp2 indirect fitness
+gene_overlap(genes_down_exp1_labour, genes_down_exp2_rank, background = intersect(row.names(exp1.gene.counts.clean),row.names(exp2.gene.counts.clean)))
+#GO
+gene_overlap(GO_down_exp1_labour, GO_down_exp2_rank, background = allGO)
+```
+
+```{r}
+gene_overlap(genes_down_exp2_rank, genes_green, background = row.names(data.gene.count.clean.normalize))
+gene_overlap(genes_down_exp2_antiforaging, genes_green, background = row.names(data.gene.count.clean.normalize))
+
+gene_overlap(genes_up_exp2_rank, genes_darkturquoise, background = row.names(data.gene.count.clean.normalize))
+gene_overlap(genes_up_exp2_antiforaging, genes_darkturquoise, background = row.names(data.gene.count.clean.normalize))
+
+
+gene_overlap(GO_down_exp2_rank, GO_green, background = row.names(data.gene.count.clean.normalize))
+gene_overlap(GO_down_exp2_antiforaging, GO_green, background = row.names(data.gene.count.clean.normalize))
+
+gene_overlap(GO_up_exp2_rank, GO_darkturquoise, background = row.names(data.gene.count.clean.normalize))
+gene_overlap(GO_up_exp2_antiforaging, GO_darkturquoise, background = row.names(data.gene.count.clean.normalize))
+
+```
+
+We need to do something with rank change:
+
+```{r}
+# perform analysis 
+dds.gene = DESeqDataSetFromMatrix(countData = exp2.gene.counts.clean.no1,
+                                  colData = exp2.phenodata.clean.no1,
+                                  design = ~Treatment)
+# Run the default analysis for DESeq2 and generate results table. NA p-values are generated by 0 counts and outliers calculated by Cook's distance.
+dds.gene.deg = DESeq(dds.gene, fitType = "local", betaPrior = FALSE)
+# Check for outliers: none are apparent
+# print("Check for gene expression outliers")
+# par(mar=c(8,5,2,2))
+# boxplot(log10(assays(dds.gene.deg)[["cooks"]]), range=0, las=2)
+#list all possible combinations of treatment groups
+groups = as.character(unique(dds.gene.deg$Treatment))
+contrasts = t(combn(groups, 2))
+#create empty matrix to be populated with between-group comparisons
+DEGs = matrix(nrow = length(groups), 
+              ncol = length(groups), 
+              dimnames = list(groups,groups))
+gene.comparisons = c()
+#for each comparison, perform basic differential expression analysis 
+for(i in 1:nrow(contrasts)){
+  
+  comparison = results(dds.gene.deg, 
+                       contrast=c("Treatment", 
+                                  contrasts[i,1], 
+                                  contrasts[i,2]),     
+                       alpha = 0.05,
+                       lfcThreshold = log2(1))
+  
+  #give comparison object a meaningful name for future reference and save that name in a list
+  assign(paste0(contrasts[i,1], ".",contrasts[i,2],".gene.comparison"), comparison)
+  gene.comparisons = append(paste0(contrasts[i,1], ".",contrasts[i,2],".gene.comparison"),gene.comparisons)
+  DEGs[contrasts[i,1],contrasts[i,2]] = (sum(comparison$padj<0.05, na.rm = TRUE))
+  DEGs[contrasts[i,2],contrasts[i,1]] = DEGs[contrasts[i,1],contrasts[i,2]]
+}
+
+table(R2_R.R3_C.gene.comparison$padj<0.05)
+table(R2_C.R2_R.gene.comparison$padj<0.05)
+table(R2_C.R3_C.gene.comparison$padj<0.05)
+
+
+table(R3_R.R3_C.gene.comparison$padj<0.05)
+```
+```{r}
+# exp2.phenodata.clean.testset = subset(exp2.phenodata.clean.no1, Treatment %in% c("R2_R","R2_C","R3_C"))
+# exp2.gene.counts.clean.testset = exp2.gene.counts.clean[,exp2.phenodata.clean.testset$WaspID]
+# 
+# pca.counts = log2(exp2.gene.counts.clean.testset[order(rowVars(exp2.gene.counts.clean.testset),decreasing = T)[1:100],]+1)
+
+# #create pca object
+# data.pca = prcomp(t(pca.counts))
+# #extract PC data
+# percent.var = (data.pca$sdev^2 / sum(data.pca$sdev^2))
+# pca.out = list(values = data.frame(data.pca$x),
+#                percent.var = percent.var)
+# #connect to phenotypic data
+# ggpcadata = pca.out$values %>% 
+#   rownames_to_column(var = "WaspID") %>%
+#   left_join(exp2.phenodata.clean.testset,
+#             by = "WaspID")
+# #plot
+# ggplot(ggpcadata, aes(x = PC1, y = PC2, color = Treatment, label = WaspID)) +
+#   geom_point(size = 5, position = position_jitter(width = 0.5,height=0.5)) +
+#   geom_text(vjust = -1) +
+#   xlab(paste0("PC",1,": ",signif(pca.out$percent.var[1]*100, 3),"%")) +
+#   ylab(paste0("PC",2,": ",signif(pca.out$percent.var[2]*100, 3),"%")) +
+#   theme_bw() +
+#   # scale_color_manual(name = "Treatment",
+#   #                    values = brewer.pal(7, "Paired")) +
+#   scale_shape_manual(name = "Treatment",
+#                      values = c(8,15:20)) +
+#   theme(panel.grid = element_line(color = "grey95"),
+#         legend.title = element_text(face = "bold"),
+#         axis.text.x = element_text(size = 11),
+#         axis.text.y = element_text(size = 11),
+#         axis.title = element_text(face = "bold", size =12))
 ```
 
