@@ -3,3 +3,5 @@ LF_2020_cache/
 *.faa
 *.tab
 *.faa*
+*.RData
+*.Rhistory
