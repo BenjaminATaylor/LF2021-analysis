@@ -2447,7 +2447,7 @@ comps_plot$valuereal = comps_plot$value
 comps_plot$valuereal[which(comps_plot$value==0)] = "<0.0001"
 gg_exp2_upDEG_overlaps = ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value)) + 
   scale_x_discrete(labels = c("Time on Nest", "Polistes dominula\nqueens", "Module 12")) +
-  scale_y_discrete(labels = c("Reroductives", "Time on Nest", "Polistes dominula\nqueens")) +
+  scale_y_discrete(labels = c("Reproductives", "Time on Nest", "Polistes dominula\nqueens")) +
   geom_tile(color = "black") +
   geom_text(aes(label=valuereal),
             nudge_y = 0.05, fontface = 2) +
@@ -2540,7 +2540,7 @@ gg_exp2_upGO_overlaps = ggplot(data = comps_plot, aes(x=Var1, y=Var2, fill=value
   geom_text(aes(label=na.omit(c(labs_upGO))),
             nudge_y = -0.15, size = 3) +
   scale_x_discrete(labels = c("Time on Nest", "Polistes dominula\nqueens", "Module 12")) +
-  scale_y_discrete(labels = c("Reroductives", "Time on Nest", "Polistes dominula\nqueens")) +
+  scale_y_discrete(labels = c("Reproductives", "Time on Nest", "Polistes dominula\nqueens")) +
   scale_fill_gradientn(colours = colorRampPalette(rev(c("#FFFFFF",brewer.pal(n = 9, name = "Reds")[1:5])),bias=6)(20),
                        breaks = c(0.0,0.05,1),
                        expand = c(0,0),
@@ -3045,5 +3045,20 @@ table(R3_R.R3_C.gene.comparison$padj<0.05)
 #         axis.text.x = element_text(size = 11),
 #         axis.text.y = element_text(size = 11),
 #         axis.title = element_text(face = "bold", size =12))
+```
+
+
+```{r}
+exp1.phenodata.clean.solitary = subset(exp1.phenodata.clean, Treatment %in% c("SolFor","SolRep"))
+exp1.gene.counts.clean.solitary = exp1.gene.counts.clean[,exp1.phenodata.clean.solitary$WaspID]
+
+soltest =  DESeq_wrap(data = exp1.phenodata.clean.solitary,
+                      genes = exp1.gene.counts.clean.solitary,
+                      formula = "~ Treatment",
+                      detail = T)
+
+soldegs = soltest$Treatment_SolRep_vs_SolFor %>% subset(padj<0.05) %>% row.names()
+
+gene_overlap(soldegs, genes_down_exp2_rank, row.names(exp1.gene.counts.clean))
 ```
 
