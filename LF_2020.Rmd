@@ -1704,26 +1704,31 @@ powers = c(c(1:10), seq(from = 12, to=20, by=2))
 # there are two ways of doing signed- 'signed' and signed hybrid'.
 # these two usually produce similar results, but remember that powers for the hybrid are effectively half of those for the normal signed 
 # more here: https://peterlangfelder.com/2018/11/25/__trashed/
-# sft = pickSoftThreshold(datExpr, powerVector = powers, verbose = 0, networkType="signed hybrid") #NB: we don't run this here so that it doesn't print out to the markdown
-# # Plot the results:
-# # sizeGrWindow(9, 5)
-# # par(mfrow = c(1,2))
-# par(mfrow=c(1,2),oma = c(0, 0, 0.3, 0))
-# cex1 = 0.9;
-# # Scale-free topology fit index as a function of the soft-thresholding power
-# plot(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
-#      xlab="Soft Threshold (power)",ylab="Scale Free Topology Model Fit,signed R^2",type="n",
-#      main = paste("Scale independence"));
-# text(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
-#      labels=powers,cex=cex1,col="red");
-# # this line corresponds to using an R^2 cut-off of h
-# abline(h=0.90,col="red")
-# # Mean connectivity as a function of the soft-thresholding power
-# plot(sft$fitIndices[,1], sft$fitIndices[,5],
-#      xlab="Soft Threshold (power)",ylab="Mean Connectivity", type="n",
-#      main = paste("Mean connectivity"))
-# text(sft$fitIndices[,1], sft$fitIndices[,5], labels=powers, cex=cex1,col="red")
-# mtext("Signed Hybrid", outer = T, cex = 1.5, line = -1.2)
+sft = pickSoftThreshold(datExpr, powerVector = powers, verbose = 0, networkType="signed hybrid") #NB: we don't run this here so that it doesn't print out to the markdown
+# Plot the results:
+# sizeGrWindow(9, 5)
+# par(mfrow = c(1,2))
+sizeGrWindow(9, 5)
+png(file = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures/supplementary_figures/softpowerplots.png", width = 25, height = 15, res = 800, units = "cm")
+par(mfrow = c(1,2));
+par(mar = c(5,5,2,1))
+cex1 = 0.9;
+# Scale-free topology fit index as a function of the soft-thresholding power
+plot(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
+     xlab="Soft Threshold (power)",ylab="Scale Free Topology Model Fit,signed R^2",type="n",
+     main = paste("Scale independence"));
+text(sft$fitIndices[,1], -sign(sft$fitIndices[,3])*sft$fitIndices[,2],
+     labels=powers,cex=cex1,col="red");
+# this line corresponds to using an R^2 cut-off of h
+abline(h=0.90,col="red")
+# Mean connectivity as a function of the soft-thresholding power
+plot(sft$fitIndices[,1], sft$fitIndices[,5],
+     xlab="Soft Threshold (power)",ylab="Mean Connectivity", type="n",
+     main = paste("Mean connectivity"))
+text(sft$fitIndices[,1], sft$fitIndices[,5], labels=powers, cex=cex1,col="red")
+
+dev.off()
+
 # We never quite reach a scale-free topology fit of 0.9...
 # We'll pick a soft-power value of 6, which is the lowest number that gets us above 0.8 and is also the inflection point
 softPower = 6
@@ -1787,13 +1792,16 @@ mergedMEs = merge$newMEs;
 # now we have 20 modules
 table(mergedColors)
 
-# sizeGrWindow(12, 9)
-# # # #pdf(file = "Plots/geneDendro-3.pdf", wi = 9, he = 6)
-# plotDendroAndColors(geneTree, cbind(dynamicColors, mergedColors),
-#                     c("Dynamic Tree Cut", "Merged dynamic"),
-#                     dendroLabels = FALSE, hang = 0.03,
-#                     addGuide = TRUE, guideHang = 0.05)
-# #dev.off()
+sizeGrWindow(12, 9)
+png(file = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures/supplementary_figures/cluster_dendrogram.png", width = 25, height = 15, res = 800, units = "cm")
+par(mfcol = c(1,1));
+par(mar = c(3.2, 3.2 , 3.2, 3.2))
+cex1 = 0.9;
+plotDendroAndColors(geneTree, cbind(dynamicColors, mergedColors),
+                    c("Dynamic Tree Cut", "Merged dynamic"),
+                    dendroLabels = FALSE, hang = 0.03,
+                    addGuide = TRUE, guideHang = 0.05)
+dev.off()
 
 # Rename to moduleColors
 moduleColors = mergedColors
@@ -1842,8 +1850,8 @@ gg_module_pheno = ggplot(data = padjmelt, aes(x = variable, y = modcolor)) +
   scale_x_discrete("Trait",
                    expand = c(0,0),
                    labels = c("Time off nest",
-                              "Rank (original)",
-                              "Rank (manipulated)",
+                              "Rank\n(before manipulation)",
+                              "Rank\n(after manipulation)",
                               "Age"),
                    position = "top") +
   scale_y_discrete("Module",
