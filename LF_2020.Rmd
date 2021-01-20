@@ -1137,8 +1137,6 @@ DEGs = matrix(nrow = length(groups),
               ncol = length(groups), 
               dimnames = list(groups,groups))
 
-gene.comparisons = c()
-
 #for each comparison, perform basic differential expression analysis 
 for(i in 1:nrow(contrasts)){
   
@@ -1148,14 +1146,14 @@ for(i in 1:nrow(contrasts)){
                                   contrasts[i,2]),     
                        alpha = 0.05,
                        lfcThreshold = log2(1.5))
-  
-  #give comparison object a meaningful name for future reference and save that name in a list
-  assign(paste0(contrasts[i,1], ".",contrasts[i,2],".gene.comparison"), comparison)
-  gene.comparisons = append(paste0(contrasts[i,1], ".",contrasts[i,2],".gene.comparison"),gene.comparisons)
-  
+  # 
+  # #give comparison object a meaningful name for future reference and save that name in a list
+  # assign(paste0(contrasts[i,1], ".",contrasts[i,2],".gene.comparison"), comparison)
+  # gene.comparisons = append(paste0(contrasts[i,1], ".",contrasts[i,2],".gene.comparison"),gene.comparisons)
+  # 
   DEGs[contrasts[i,1],contrasts[i,2]] = (sum(comparison$padj<0.05, na.rm = TRUE))
   DEGs[contrasts[i,2],contrasts[i,1]] = DEGs[contrasts[i,1],contrasts[i,2]]
-  
+
 }
 
 # make a figure 
@@ -1211,8 +1209,6 @@ DEGs = matrix(nrow = length(groups),
               ncol = length(groups), 
               dimnames = list(groups,groups))
 
-gene.comparisons = c()
-
 #for each comparison, perform basic differential expression analysis 
 for(i in 1:nrow(contrasts)){
   
@@ -1224,8 +1220,8 @@ for(i in 1:nrow(contrasts)){
                        lfcThreshold = log2(1))
   
   #give comparison object a meaningful name for future reference and save that name in a list
-  assign(paste0(contrasts[i,1], ".",contrasts[i,2],".gene.comparison"), comparison)
-  gene.comparisons = append(paste0(contrasts[i,1], ".",contrasts[i,2],".gene.comparison"),gene.comparisons)
+  assign(paste0(contrasts[i,1], ".",contrasts[i,2],".gene.comparison.orig"), comparison)
+  gene.comparisons = append(paste0(contrasts[i,1], ".",contrasts[i,2],".gene.comparison.orig"),gene.comparisons)
   
   DEGs[contrasts[i,1],contrasts[i,2]] = (sum(comparison$padj<0.05, na.rm = TRUE))
   DEGs[contrasts[i,2],contrasts[i,1]] = DEGs[contrasts[i,1],contrasts[i,2]]
@@ -1259,8 +1255,6 @@ DEGs = matrix(nrow = length(groups),
               ncol = length(groups), 
               dimnames = list(groups,groups))
 
-gene.comparisons = c()
-
 #for each comparison, perform basic differential expression analysis 
 for(i in 1:nrow(contrasts)){
   
@@ -1271,13 +1265,13 @@ for(i in 1:nrow(contrasts)){
                        alpha = 0.05,
                        lfcThreshold = log2(1.5))
   
-  #give comparison object a meaningful name for future reference and save that name in a list
-  assign(paste0(contrasts[i,1], ".",contrasts[i,2],".gene.comparison"), comparison)
-  gene.comparisons = append(paste0(contrasts[i,1], ".",contrasts[i,2],".gene.comparison"),gene.comparisons)
-  
+  # #give comparison object a meaningful name for future reference and save that name in a list
+  # assign(paste0(contrasts[i,1], ".",contrasts[i,2],".gene.comparison"), comparison)
+  # gene.comparisons = append(paste0(contrasts[i,1], ".",contrasts[i,2],".gene.comparison"),gene.comparisons)
+  # 
   DEGs[contrasts[i,1],contrasts[i,2]] = (sum(comparison$padj<0.05, na.rm = TRUE))
   DEGs[contrasts[i,2],contrasts[i,1]] = DEGs[contrasts[i,1],contrasts[i,2]]
-  
+  # 
 }
 
 # make a figure 
@@ -1316,6 +1310,21 @@ ggsave(gg_exp2_pairwise_DEGs_0lfc, filename = "experiment2_pairwise_DEGs_0lfc.pn
 ggsave(gg_exp2_pairwise_DEGs_all, filename = "experiment2_pairwise_DEGs.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures",
        width = 25, height = 27, units = "cm")
 ```
+Check whether the sets of degs from the two (orig and final rank) comparisons overlap:
+
+```{r}
+extractDEGs = function(x){get(x) %>% subset(padj<0.05) %>% row.names()}
+
+newranks = c("1.5.gene.comparison","1.4.gene.comparison","1.3.gene.comparison","1.2.gene.comparison")
+newDEGs = sapply(newranks, extractDEGs) %>% unlist() %>% unique()
+
+origranks = c("1.4.gene.comparison.orig","1.3.gene.comparison.orig","1.2.gene.comparison.orig")
+origDEGs = sapply(origranks, extractDEGs) %>% unlist() %>% unique()
+
+gene_overlap(newDEGs, origDEGs, background = exp2.gene.counts.clean)
+
+```
+
 
 We'll now look to see which genes' expression (if any) are significantly correlated with rank, age and foraging rate when treating those as continuous variables. As rank 1 seems to stand out as being very different to all other treatment groups, we'll try running each analysis both with and without the inclusion of rank 1 individuals. Some key results from this: 
 
@@ -2017,7 +2026,6 @@ darkturquoiseGO = topGO_wrapper(geneScores = GOscores.darkturquoise,
                              nodeSize = 10,
                              discretisedDE = F,
                              p = 0.01)
-#darkturquoiseGO$consolidated_result #18 terms: visual perception, feeding
 #save results
 GO_treeplots(darkturquoiseGO, path = "/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures/supplementary_figures/experiment2_darkturquoise_GO_plots.png")
 write.csv(darkturquoiseGO$consolidated_result, 
