@@ -101,5 +101,3 @@ GO_treeplots = function(GOframe, path){
   dev.off()
   
 }
-
-GO_treeplots(darkturquoiseGO, path = "/home/benjamin/Desktop/treeplot_temp.png")
