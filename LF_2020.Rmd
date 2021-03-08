@@ -738,12 +738,12 @@ First, we look at foraging rates for all individuals prior to manipulation. This
 #plot time off nest against rank
 gg_exp2_foragingbefore = ggplot(exp2.phenodata.clean, aes(x = as.factor(Rank), y = OffNestBefore, colour = as.factor(Rank))) +
   geom_boxplot(notch = F, outlier.shape = NA, lwd = 1, colour = "black") +
-  ggbeeswarm::geom_beeswarm(shape = 19, size = 4, show.legend = FALSE, alpha = .7) +
+  ggbeeswarm::geom_beeswarm(shape = 19, size = 3, show.legend = FALSE, alpha = .7) +
   scale_colour_manual(values = c("midnightblue",brewer.pal(6, "YlOrRd")[6:3])) +
   xlab("Original Rank") +
   ylab("Time off nest before manipulation") +
   theme_bw() +  
-  theme(aspect.ratio = 1, 
+  theme(aspect.ratio = 1.2, 
         legend.position = "none",
         plot.title = element_text(size=18, face="bold", hjust = 0.5),
         axis.text.x = element_text(size=15),
@@ -755,7 +755,10 @@ gg_exp2_foragingbefore = ggplot(exp2.phenodata.clean, aes(x = as.factor(Rank), y
         axis.ticks = element_line(size=1),
         panel.border = element_rect(size=1.5),
         strip.text.x = element_text(size=15, face = "bold"),
-        strip.background = element_rect(size = 1.5))
+        strip.background = element_rect(size = 1.5),
+        # plot.margin=unit(c(5.5,5.5,30.5,5.5),"points")
+        )
+
 
 # ggsave(gg_exp2_foragingbefore, filename = "experiment2_foraging_original.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
 #        width = 25, height = 20, units = "cm")
@@ -800,22 +803,23 @@ Our next prediction is that individuals should alter their foraging rate when ot
 Foraging rate for this group does not change significantly following nest size manipulation, nor do we find strong evidence for changes in mean foraging rate for any other group (but in the latter cases it's impossible to tell if this is just the effect of individuals' rank increases being canceled out by the change in group size).
 
 ```{r exp2-phenotype-foraging-change}
-treatments = c("Rank 1", "Rank 2\n(unchanged)", "Rank 2\n(control)", "Rank 2\n(elevated rank)",
-           "Rank 3\n(control)", "Rank 3\n(elevated rank)", "Rank 4\n(elevated rank)")
+treatments = c("Rank 1", "Rank 2\n(original rank)", "Rank 2\n(control)", "Rank 2\n(promoted rank)",
+           "Rank 3\n(control)", "Rank 3\n(promoted rank)", "Rank 4\n(promoted rank)")
 
 gg_exp2_foragingchange = ggplot(subset(exp2.phenodata.clean,Control==F), aes(x = Treatment, y = OffNestChange, colour = Treatment)) +
   geom_boxplot(notch = F, outlier.shape = NA, lwd = 1, colour = "black") +
-  ggbeeswarm::geom_beeswarm(shape = 19, size = 4, show.legend = FALSE, alpha = .7) +
+  ggbeeswarm::geom_beeswarm(shape = 19, size = 3, show.legend = FALSE, alpha = .7) +
   geom_hline(yintercept = 0, linetype = "dashed") +
   scale_colour_manual(values = c("midnightblue",brewer.pal(6, "YlOrRd")[c(6,6,5,4)])) +
   xlab("Rank after manipulation") +
   scale_x_discrete(labels = treatments[c(1:2,4,6:7)]) +
-  ylab("Time off nest before manipulation") +
+  ylab("Change in time off nest") +
   theme_bw() +  
   theme(aspect.ratio = 1, 
         legend.position = "none",
         plot.title = element_text(size=18, face="bold", hjust = 0.5),
-        axis.text.x = element_text(size=13),
+        axis.text.x = element_text(size=13, angle = -45, vjust = 0.5, hjust = 0.5, margin = margin(r=1000, t = -10)),
+        #axis.text.x = element_text(size=13,angle = 0, vjust = 0),
         axis.text.y = element_text(size=15),
         axis.title.x = element_text(size=18, face = "bold"),
         axis.title.y = element_text(size=18, face = "bold"),
@@ -834,7 +838,7 @@ plot(gg_exp2_foragingchange)
 gg_exp2_foraging_combined = ggarrange(gg_exp2_foragingbefore, gg_exp2_foragingchange, labels = "AUTO", ncol = 2)
 
 ggsave(gg_exp2_foraging_combined, filename = "experiment2_foraging_before_and_change.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
-       width = 45, height = 20, units = "cm")
+       width = 25, height = 15, units = "cm")
 
 #does time off nest shift for individuals that increase in rank?
 mean(na.omit(exp2.phenodata.clean$OffNestChange[which(exp2.phenodata.clean$RankChange==T)]))
@@ -1571,6 +1575,7 @@ GOplot_foragingUp = ggplot(topForagingGO_up, aes(y = reorder(Term, result*(-1)),
 
 #now genes that are downregulated
 offNestDEGs_forGO$OffNestFinal %>% subset(padj<0.05 & log2FoldChange<0) %>% nrow()
+
 genes_down_exp2_foraging = offNestDEGs_forGO$OffNestFinal %>% subset(padj<0.05 & log2FoldChange < 0) %>% row.names()
 GOscores_down_exp2_foraging = as.numeric(row.names(exp2.gene.counts.clean) %in% genes_down_exp2_foraging) %>%'names<-'(row.names(exp2.gene.counts.clean))
 
@@ -1842,7 +1847,8 @@ padjmelt =
 
 padjmelt$modcolor = factor(stringr::str_sub(colnames(MEs),3,), levels = stringr::str_sub(colnames(MEs),3,))
 
-SimpleNames = paste0("Module ",c(ncol(MEs):1))
+#SimpleNames = paste0("Module ",c(ncol(MEs):1))
+SimpleNames = paste0("Module ",c(20:1))
 
 #save gene module membership to data frame
 moduleColorMatch = cbind(as.character(unique(padjmelt$modcolor)), rev(SimpleNames))
@@ -1935,8 +1941,8 @@ gg_exp2_darkturquoisecor = ggplot(data = darkturquoiseframe, aes(x = membership,
   geom_point(size = 3, alpha = 0.7) +
   geom_smooth(method="lm") +
   xlab("Module Membership") +
-  ylab("Gene significance for time off nest")+
-  annotate(geom="text", x=0.87, y=0, label=darkturquoisecortext,
+  ylab("Correlation with foraging effort")+
+  annotate(geom="text", x=0.83, y=0, label=darkturquoisecortext,
               color="red", size = 6) +
   theme_bw() +
   theme(aspect.ratio = 2/3, 
@@ -1984,8 +1990,8 @@ gg_exp2_greencor = ggplot(data = greenframe, aes(x = membership, y = significanc
   geom_point(size = 3, alpha = 0.7) +
   geom_smooth(method="lm") +
   xlab("Module Membership") +
-  ylab("Gene significance for time off nest")+
-  annotate(geom="text", x=0.87, y=0, label=greencortext,
+  ylab("Correlation with foraging effort")+
+  annotate(geom="text", x=0.82, y=0, label=greencortext,
               color="red", size = 6) +
   theme_bw() +
   theme(aspect.ratio = 2/3, 
@@ -2010,7 +2016,7 @@ gg_exp2_greencor
 gg_exp2_combinedcors = ggarrange(gg_exp2_darkturquoisecor, gg_exp2_greencor, ncol =2, labels = "AUTO")
 
 ggsave(gg_exp2_combinedcors, filename = "experiment2_green_and_darkturquoise_module_significance.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
-       width = 50, height = 16, units = "cm")
+       width = 33, height = 13, units = "cm")
 ```
 
 Looking at the GO terms associated with these two modules: darkturquoise is associated with a smaller set of terms, with an emphasis on sensory processes, while green is associated with a larger set of terms that include biosynthetic and respiratory processes. 
@@ -3077,4 +3083,6 @@ soldegs = soltest$Treatment_SolRep_vs_SolFor %>% subset(padj<0.05) %>% row.names
 
 gene_overlap(soldegs, genes_down_exp2_rank, row.names(exp1.gene.counts.clean))
 ```
+
+
 
