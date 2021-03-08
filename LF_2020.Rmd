@@ -3085,4 +3085,27 @@ gene_overlap(soldegs, genes_down_exp2_rank, row.names(exp1.gene.counts.clean))
 ```
 
 
+## Phylogenetic comparisons
+
+A really interesting result from the above analyses is that direct fitness genes seem to more rather than less derived than indirect fitness genes, which is a reversal of the expected pattern. To try to confirm this result, we'd like to compare our results to more taxa than just P. dominula. As such, we're going to also identify direct and indirect fitness genes in two related vespid species for which caste-biased transcritomic data are available, and we're then going to compare our results to these species'.
+
+# Vespula vulgaris
+
+First we import V vulgaris read counts, which we generated using Nextflow:
+
+```{r import-Vvulgaris}
+
+```
+
+We begin by running a standard differential expression analysis:
+
+```{r DESeq2-Vvulgaris}
+
+```
+
+We then use phylostratigraphy to check whether caste-biased genes in V vulgaris exhibit the expected pattern of conservation:
+
+```{r } 
+
+```
 
