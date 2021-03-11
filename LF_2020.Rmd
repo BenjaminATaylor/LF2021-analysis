@@ -3089,17 +3089,34 @@ gene_overlap(soldegs, genes_down_exp2_rank, row.names(exp1.gene.counts.clean))
 
 A really interesting result from the above analyses is that direct fitness genes seem to more rather than less derived than indirect fitness genes, which is a reversal of the expected pattern. To try to confirm this result, we'd like to compare our results to more taxa than just P. dominula. As such, we're going to also identify direct and indirect fitness genes in two related vespid species for which caste-biased transcritomic data are available, and we're then going to compare our results to these species'.
 
-# Vespula vulgaris
+# Polistes canadensis
 
-First we import V vulgaris read counts, which we generated using Nextflow:
+First we import Pcan read counts, which we generated using Nextflow:
 
-```{r import-Vvulgaris}
+```{r import-Pcan}
+#import counts
+pcan.gene.counts = read.delim("/home/benjamin/Documents/LF_2020_repo/Data_Pcan/merged_gene_counts_Pcan.txt", row.names = NULL)[,-1]
+#strip out tRNAs
+pcan.gene.counts = pcan.gene.counts[!(substr(pcan.gene.counts$gene_name,1,4)=="Trna"),] %>%
+  remove_rownames() %>% column_to_rownames("gene_name") 
 
+#get metadata
+metadata = read.csv("/home/benjamin/Documents/LF_2020_repo/Data_Pcan/SRA_metadata.txt", row.names = 1)
+
+#rename sample columns
+queenIDs = row.names(metadata)[which(metadata$social_status %in% c("queen",""))]
+workerIDs = row.names(metadata)[which(metadata$social_status %in% c("forager"))]
+colnames(pcan.gene.counts)[which(substr(colnames(pcan.gene.counts),1,10) %in% queenIDs)] = paste0("queen",1:length(queenIDs))
+colnames(pcan.gene.counts)[which(substr(colnames(pcan.gene.counts),1,10) %in% workerIDs)] = paste0("worker",1:length(workerIDs))
+
+#metadata table
+pcan.phenodata = data.frame(waspID = colnames(pcan.gene.counts),
+                            caste = stringr::str_sub(colnames(pcan.gene.counts), end = -2))
 ```
 
 We begin by running a standard differential expression analysis:
 
-```{r DESeq2-Vvulgaris}
+```{r DESeq2-Pcan}
 
 ```
 
