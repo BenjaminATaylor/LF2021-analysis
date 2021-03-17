@@ -5,3 +5,4 @@ LF_2020_cache/
 *.faa*
 *.RData
 *.Rhistory
+*.gff
