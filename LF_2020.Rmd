@@ -3110,19 +3110,149 @@ colnames(pcan.gene.counts)[which(substr(colnames(pcan.gene.counts),1,10) %in% qu
 colnames(pcan.gene.counts)[which(substr(colnames(pcan.gene.counts),1,10) %in% workerIDs)] = paste0("worker",1:length(workerIDs))
 
 #metadata table
-pcan.phenodata = data.frame(waspID = colnames(pcan.gene.counts),
+pcan.phenodata = data.frame(WaspID = colnames(pcan.gene.counts),
                             caste = stringr::str_sub(colnames(pcan.gene.counts), end = -2))
 ```
 
 We begin by running a standard differential expression analysis:
 
 ```{r DESeq2-Pcan}
-
+DESeq_wrap(data = pcan.phenodata,
+           genes = pcan.gene.counts,
+           formula = "~ caste",
+           detail = F,
+           lfc = 1)
 ```
 
-We then use phylostratigraphy to check whether caste-biased genes in V vulgaris exhibit the expected pattern of conservation:
+We then use phylostratigraphy to check whether caste-biased genes in P canadensis exhibit the expected pattern of conservation:
 
 ```{r } 
 
+```
+
+
+##
+
+```{r import-Vvul}
+#import counts
+vvul.gene.counts = read.delim("/home/benjamin/Documents/LF_2020_repo/Data_Vvul/merged_gene_counts_Vvul.txt", row.names = 1)[,-1]
+
+#rename columns
+queens = which(grepl("Q",colnames(vvul.gene.counts), fixed = T))
+workers = which(grepl("W",colnames(vvul.gene.counts), fixed = T))
+colnames(vvul.gene.counts)[queens] = paste0("queen",1:length(queens))
+colnames(vvul.gene.counts)[workers] = paste0("worker",1:length(workers))
+#store caste data
+vvul.phenodata = data.frame(WaspID = colnames(vvul.gene.counts),
+                            caste = factor(stringr::str_sub(colnames(vvul.gene.counts), end = -2),
+                                           levels = c("queen","worker")))
+
+#get all rows for which there are fewer than 1 count/sample total in the group
+groups = unique(vvul.phenodata$caste)
+cutrows = c()
+for(i in 1:length(groups)){
+  threshold = nrow(subset(vvul.phenodata, caste == groups[i]))
+  subgene = vvul.gene.counts[,which(colnames(vvul.gene.counts) %in% subset(vvul.phenodata, caste == groups[i])$WaspID)]
+  cutrows = c(cutrows,which(rowSums(subgene)<threshold))
+}
+#cut genes that have less than 1 read/sample in every group of interest
+remove = as.numeric(names(table(cutrows)[which(table(cutrows) == length(unique(vvul.phenodata$caste)))]))
+vvul.gene.counts.clean = as.matrix(vvul.gene.counts[-remove,])
+vvul.gene.counts.clean = vvul.gene.counts.clean[,as.character(vvul.phenodata$WaspID)]
+```
+
+```{r DESeq2-Vvul}
+DEGs_vvul = DESeq_wrap(data = vvul.phenodata,
+                       genes = vvul.gene.counts.clean,
+                       formula = "~ caste",
+                       detail = T)
+
+#genes upregulated in queens
+DEGs_vvul_up = DEGs_vvul %>% .$caste_worker_vs_queen %>%
+  subset(padj<0.05 & log2FoldChange>0) %>% row.names()
+
+#genes upregulated in workers
+DEGs_vvul_down = DEGs_vvul %>% .$caste_worker_vs_queen %>%
+  subset(padj<0.05 & log2FoldChange<0) %>% row.names()
+```
+
+```{r}
+load("/home/benjamin/Documents/LF_2020_repo/Data_Vvul/phylostrata_Vvul.Rdata")
+
+#load gene name reference
+vvulIDs = read.csv("/home/benjamin/Documents/LF_2020_repo/Genomic/vvul_gene_names.csv", header = F, row.names = NULL)  %>%
+  unique() %>% 'colnames<-'(c("GTF_ID","FASTA_ID"))
+
+DEGs_vvul_upphylo = vvulIDs$GTF_ID[which(vvulIDs$FASTA_ID %in% DEGs_vvul_up)]
+DEGs_vvul_downphylo = vvulIDs$GTF_ID[which(vvulIDs$FASTA_ID %in% DEGs_vvul_down)]
+
+phylostrata$bin = dplyr::case_when(phylostrata$ps %in% c(18:19) ~ "Aculeata",
+                                   phylostrata$ps %in% c(16:17) ~ "Hymenoptera",
+                                   phylostrata$ps %in% c(13:15) ~ "Insecta",
+                                   phylostrata$ps %in% c(1:12) ~ "Ancient")
+
+# divide into groups based on correlation with foraging rate
+phylo_up = subset(phylostrata, qseqid %in% DEGs_vvul_upphylo)$bin
+phylo_down = subset(phylostrata, qseqid %in% DEGs_vvul_downphylo)$bin
+phylo_neutral = subset(phylostrata, !(qseqid %in% c(DEGs_vvul_upphylo, DEGs_vvul_downphylo)))$bin
+
+
+#plot
+strataframe_vvul =  rbind(data.frame(treatment = "up",strata = phylo_up),
+                     data.frame(treatment = "down",strata = phylo_down),
+                     data.frame(treatment = "neutral",strata = phylo_neutral)) %>%
+  # mutate(strata = factor(strata,levels = c("Lineage-specific","Hymenoptera","Arthropoda","Metazoa","Ancient"))) %>%
+  mutate(strata = factor(strata,levels = c("Aculeata","Hymenoptera","Insecta","Ancient"))) %>%
+  mutate(treatment = factor(treatment,levels = c("up","down","neutral")))
+
+strataplot_vvul = ggplot(strataframe_vvul, aes(x = treatment, fill = strata)) +
+  geom_bar(position = "fill", width = 0.9, colour = "black",) +
+  #scale_fill_brewer(palette = "Blues",direction = -1)+
+  scale_fill_manual(values = brewer.pal(6,"Blues")[3:6], guide = guide_legend(reverse=T)) +
+  scale_x_discrete(labels = c("Queen\nbiased","Worker\nbiased","Unbiased"), 
+                   expand = c(0, 0)) +
+  scale_y_continuous(labels = scales::percent, expand = c(0,0)) +
+  xlab("Differential expression\nwith reproductive status") +
+  ylab("Proportion") +
+  coord_flip() +
+  theme_bw() +
+  theme(aspect.ratio = 1/4, 
+        legend.text = element_text(size=15),
+        legend.title = element_blank(),
+        legend.position = "top",
+        legend.spacing.x = unit(0.5,"cm"),
+        plot.title = element_text(size=18, face="bold", hjust = 0.5),
+        axis.text.x = element_text(size=15),
+        axis.text.y = element_text(size=15),
+        axis.title.x = element_text(size=15, face = "bold"),
+        axis.title.y = element_text(size=15, face = "bold"),
+        panel.grid = element_line(size = 0.2, colour = "gray95"),
+        axis.ticks = element_line(size=1),
+        panel.border = element_rect(size=1.5),
+        strip.text.x = element_text(size=15, face = "bold"),
+        strip.background = element_rect(size = 1.5))
+
+#save plot
+ggsave(strataplot_reprod, filename = "experiment2_foraging_phylostrata_reproductives.png", device = "png", path ="/home/benjamin/Dropbox/Ben PhD/PhD Docs/THESIS/data_chapter_3/figures", 
+       width = 25, height = 8, units = "cm")
+
+#make contignency table for hypothesis testing
+stratacontingency = rbind(table(phylo_up),
+                          table(phylo_down),
+                          table(phylo_neutral)) %>% 'row.names<-'(c("negative","positive","neutral"))
+
+# first test whether genes are more likely to be ancient in postive/negative vs neutral
+stratacontingency_aculeata = cbind(stratacontingency[,1],rowSums(stratacontingency[,2:4]))
+#negatively-correlated genes are more likely to be ancient
+fisher.test(stratacontingency_aculeata[c(1,3),])
+#positively-correlated genes are not more likely to be ancient
+fisher.test(stratacontingency_aculeata[c(2,3),])
+
+# now whether genes are more likely to be of arthropod origin in postive/negative vs neutral
+stratacontingency_arthropoda = cbind(stratacontingency[,2],rowSums(stratacontingency[,c(1,3:4)]))
+#negatively-correlated genes are not more likely to be arthropod
+fisher.test(stratacontingency_arthropoda[c(1,3),])
+#positively-correlated genes are significantly more likely to be arthropod
+fisher.test(stratacontingency_arthropoda[c(2,3),])
 ```
 
