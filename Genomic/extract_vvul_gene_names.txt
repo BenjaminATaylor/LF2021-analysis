@@ -1,0 +1,1 @@
+awk '/Vvulg[1-9]*g/&&/KAF/' GCA_014466185.1_ASM1446618v1_genomic.gff | cut -d ';' -f 1,2 | sed 's/.*ID=cds-//g' | sed 's/\;P.*JACSEA\|//g' | sed 's/|/\,/g' | sed 's/\.t1//g' >> vvul_gene_names.csv
