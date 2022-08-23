@@ -952,6 +952,56 @@ ggsave(gg_exp2_pca_highvar, filename = "experiment2_pca.png", device = "png", pa
 
 ```
 
+Also try plotting PCA just for ranks 2 to 3 to see how things cluster:
+
+```{r exp2-pca-manipranks}
+# treatments_manip = c("Rank 2 (unchanged)", "Rank 2 (control)", "Rank 2 (elevated rank)",
+#            "Rank 3 (control)", "Rank 3 (elevated rank)", "Rank 4 (elevated rank)")
+
+exp2.phenodata.clean.manip = subset(exp2.phenodata.clean, Treatment %in% c("R2_S","R2_C","R2_R","R3_C"))
+exp2.gene.counts.clean.manip = exp2.gene.counts.clean[,exp2.phenodata.clean.manip$WaspID]
+
+# log-transform with a pseudocount
+pca.counts = log2(exp2.gene.counts.clean.manip+1)
+#pca.counts = log2(exp2.gene.counts.clean.manip[order(rowVars(exp2.gene.counts.clean.manip),decreasing = T)[1:500],]+1)
+#pca.counts = log2(exp2.gene.counts.clean.manip[shiftgenes,]+1) #for this one run shiftgenes code rght at the end of this md
+#create pca object
+data.pca = prcomp(t(pca.counts),scale. = T)
+#extract PC data
+percent.var = (data.pca$sdev^2 / sum(data.pca$sdev^2))
+pca.out = list(values = data.frame(data.pca$x),
+               percent.var = percent.var)
+#connect to phenotypic data
+ggpcadata = pca.out$values %>% 
+  rownames_to_column(var = "WaspID") %>%
+  left_join(exp2.phenodata.clean.manip,
+            by = "WaspID")
+#plot
+ggplot(ggpcadata, aes(x = PC1, y = PC2, color = Treatment, label = WaspID)) +
+  geom_point(size = 4, position = position_jitter(width = 0.5,height=0.5)) +
+  #geom_text(vjust = -1) +
+  xlab(paste0("PC",1,": ",signif(pca.out$percent.var[1]*100, 3),"%")) +
+  ylab(paste0("PC",2,": ",signif(pca.out$percent.var[2]*100, 3),"%")) +
+  scale_colour_manual(name = "Rank at removal",
+                      values = c("midnightblue","midnightblue",brewer.pal(3, "YlOrRd")[c(3,2)]))+
+                      #labels = treatments_nonewline) +
+  theme_bw() +  
+  theme(aspect.ratio = 1, 
+        legend.text = element_text(size=15),
+        legend.title = element_text(size=15, face = "bold"),
+        plot.title = element_text(size=18, face="bold", hjust = 0.5),
+        axis.text.x = element_text(size=15),
+        axis.text.y = element_text(size=15),
+        axis.title.x = element_text(size=18, face = "bold"),
+        axis.title.y = element_text(size=18, face = "bold"),
+        panel.grid = element_line(size = 0.2, colour = "gray95"),
+        axis.ticks = element_line(size=1),
+        panel.border = element_rect(size=1.5),
+        strip.text.x = element_text(size=15, face = "bold"),
+        strip.background = element_rect(size = 1.5))
+
+```
+
 We'll now assess differential expression between treatment groups to see if any stand out as being particularly different to one another. Two results stick out: 
 * Rank 1 individuals are strongly differentiated from every other treatment group *except* for unmanipulated rank 2 individuals from manipulated nests
 * Rank 3 controls seems to show fairly strong signals of differential expression with individuals that have been elevated in rank
@@ -3031,6 +3081,13 @@ table(R2_R.R3_C.gene.comparison$padj<0.05)
 table(R2_C.R2_R.gene.comparison$padj<0.05)
 table(R2_C.R3_C.gene.comparison$padj<0.05)
 
+shiftgenes =  unique(c(row.names(subset(R2_R.R3_C.gene.comparison,padj<0.05)),
+                       row.names(subset(R2_C.R2_R.gene.comparison,padj<0.05)),
+                       row.names(subset(R2_C.R3_C.gene.comparison,padj<0.05))))
+
+#do these genes overlap significantly?
+gene_overlap_test(shiftgenes, c(forageDownGenes,forageUpGenes), row.names(exp2.gene.counts.clean))
+
 
 table(R3_R.R3_C.gene.comparison$padj<0.05)
 ```
@@ -3183,6 +3240,8 @@ load("/home/benjamin/Documents/LF_2020_repo/Data_Vvul/phylostrata_Vvul.Rdata")
 vvulIDs = read.csv("/home/benjamin/Documents/LF_2020_repo/Genomic/vvul_gene_names.csv", header = F, row.names = NULL)  %>%
   unique() %>% 'colnames<-'(c("GTF_ID","FASTA_ID"))
 
+unique(phylostrata[,c("ps","mrca_name")])
+
 DEGs_vvul_upphylo = vvulIDs$GTF_ID[which(vvulIDs$FASTA_ID %in% DEGs_vvul_up)]
 DEGs_vvul_downphylo = vvulIDs$GTF_ID[which(vvulIDs$FASTA_ID %in% DEGs_vvul_down)]
 
@@ -3254,5 +3313,41 @@ stratacontingency_arthropoda = cbind(stratacontingency[,2],rowSums(strataconting
 fisher.test(stratacontingency_arthropoda[c(1,3),])
 #positively-correlated genes are significantly more likely to be arthropod
 fisher.test(stratacontingency_arthropoda[c(2,3),])
+```
+
+For Max: what are genes that are up/downregulated with foraging rate among non-reproductives doing in Rank 1? Max hypothesises that these genes might be for e.g. 'nursing' behaviour, in which case they would rise in expression as we reach rank 2, but then suddenly drop off in rank 1. Actually, that's not what we find:
+
+```{r}
+#get set of genes that are negatively associated with foraging rate among non-reproductives
+testOffNest = DESeq_wrap(data = exp2.phenodata.clean.no1.resids,
+                                       genes = exp2.gene.counts.clean,
+                                       formula = "~ OffNestFinal",
+                                       detail = T)
+
+foo = subset(testOffNest$OffNestFinal, padj<0.05 & log2FoldChange<0)
+nrow(foo)
+laborDownGenes = row.names(foo)
+
+bar = subset(testOffNest$OffNestFinal, padj<0.05 & log2FoldChange>0)
+nrow(bar)
+laborUpGenes = row.names(bar)
+
+#what is mean expression of these genes in rank 4?
+all4s = subset(exp2.phenodata.clean, Rank == 4)$WaspID
+all3s = subset(exp2.phenodata.clean, Rank == 3)$WaspID
+all2s = subset(exp2.phenodata.clean, Rank == 2)$WaspID
+all1s = subset(exp2.phenodata.clean, Rank == 1)$WaspID
+
+#genes upregulated with labor effort - yes, they reach lowest expression in rank 1
+mean(exp2.gene.counts.clean[laborUpGenes,all4s])
+mean(exp2.gene.counts.clean[laborUpGenes,all3s])
+mean(exp2.gene.counts.clean[laborUpGenes,all2s])
+mean(exp2.gene.counts.clean[laborUpGenes,all1s])
+
+#genes downregulated with labor effort - yes, they reach highest expression in rank 1
+mean(exp2.gene.counts.clean[laborDownGenes,all4s])
+mean(exp2.gene.counts.clean[laborDownGenes,all3s])
+mean(exp2.gene.counts.clean[laborDownGenes,all2s])
+mean(exp2.gene.counts.clean[laborDownGenes,all1s])
 ```
 
